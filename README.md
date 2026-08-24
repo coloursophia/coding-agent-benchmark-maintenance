@@ -31,7 +31,9 @@ The paper-facing experiment keeps two evaluation environments separate:
 The 2026 panel was not read by the pilot and therefore supplies the strongest
 time-external replication. See [`docs/formal_protocol.md`](docs/formal_protocol.md)
 for inclusion rules, dependence controls, uncertainty estimators, and claim
-boundaries.
+boundaries. The rejected alternatives, target-journal fit, title vocabulary,
+and paper-facing claim limits are documented in
+[`docs/paper_positioning.md`](docs/paper_positioning.md).
 
 ## Evaluation design
 

@@ -106,7 +106,7 @@ class FormalStudyTests(unittest.TestCase):
         self.assertEqual(decision["minimum_reliable_entropy_budget"], 100)
         self.assertEqual(decision["minimum_reliable_temporal_coreset_budget"], 150)
 
-    def test_threshold_sensitivity_takes_worst_panel_scope_budget(self):
+    def test_threshold_sensitivity_requires_one_budget_to_pass_every_cell(self):
         policies = [{
             "name": "primary",
             "minimum_mean_tau_b": 0.90,
@@ -122,6 +122,41 @@ class FormalStudyTests(unittest.TestCase):
                         rows.append({"panel": panel, "scope": scope, "method": method, "budget": budget, "tau_b": 0.95 if passes else 0.5, "tau_b_q025": 0.90 if passes else 0.4})
         result = formal.threshold_sensitivity(rows, [{"name": "a"}, {"name": "b"}], policies)
         self.assertEqual({row["robust_budget"] for row in result}, {500})
+
+    def test_common_budget_does_not_assume_monotone_fidelity(self):
+        policy = {
+            "minimum_mean_tau_b": 0.90,
+            "minimum_random_tau_b_q025": 0.85,
+            "minimum_deterministic_tau_b_q025": 0.80,
+        }
+        rows = []
+        cells = [("a", "all_systems"), ("b", "cluster_latest")]
+        for panel, scope in cells:
+            for budget in (100, 400, 500):
+                passes = budget == 500 or (
+                    panel == "a" and scope == "all_systems" and budget == 400
+                ) or (
+                    panel == "b" and scope == "cluster_latest" and budget == 100
+                )
+                rows.append({
+                    "panel": panel,
+                    "scope": scope,
+                    "method": "entropy",
+                    "budget": budget,
+                    "tau_b": 0.95 if passes else 0.70,
+                    "tau_b_q025": 0.90 if passes else 0.60,
+                })
+
+        individual = [
+            formal.reliability_decision(rows, panel, scope, policy)["minimum_reliable_entropy_budget"]
+            for panel, scope in cells
+        ]
+        self.assertEqual(individual, [400, 100])
+        self.assertEqual(max(individual), 400)
+        self.assertEqual(
+            formal.minimum_common_budget(rows, cells, "entropy", policy),
+            500,
+        )
 
 
 if __name__ == "__main__":

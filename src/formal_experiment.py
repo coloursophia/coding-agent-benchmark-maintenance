@@ -529,28 +529,51 @@ def reliability_decision(metric_rows: list[dict], panel: str, scope: str, config
     }
 
 
-def threshold_sensitivity(metric_rows: list[dict], panels: list[dict], policies: list[dict]) -> list[dict]:
-    methods = {
-        "repo_stratified_random": "minimum_reliable_repo_stratified_budget",
-        "entropy": "minimum_reliable_entropy_budget",
-        "temporal_coreset": "minimum_reliable_temporal_coreset_budget",
+def row_passes_policy(row: dict, method: str, policy: dict) -> bool:
+    lower_bound = (
+        policy["minimum_random_tau_b_q025"]
+        if method == "repo_stratified_random"
+        else policy["minimum_deterministic_tau_b_q025"]
+    )
+    return (
+        float(row["tau_b"]) >= policy["minimum_mean_tau_b"]
+        and float(row["tau_b_q025"]) >= lower_bound
+    )
+
+
+def minimum_common_budget(
+    metric_rows: list[dict], cells: list[tuple[str, str]], method: str, policy: dict
+) -> int | None:
+    """Return the smallest single budget that passes in every requested cell.
+
+    Taking the maximum of cell-specific minimum budgets is only valid when
+    pass/fail status is monotone in budget. Held-out ranking fidelity can be
+    non-monotone, especially for deterministic selectors, so every candidate
+    budget must be checked across all panels and scopes at that exact budget.
+    """
+    lookup = {
+        (row["panel"], row["scope"], row["method"], row["budget"]): row
+        for row in metric_rows
     }
+    budgets = sorted({int(row["budget"]) for row in metric_rows if row["method"] == method})
+    for budget in budgets:
+        rows = [lookup.get((panel, scope, method, budget)) for panel, scope in cells]
+        if all(row is not None and row_passes_policy(row, method, policy) for row in rows):
+            return budget
+    return None
+
+
+def threshold_sensitivity(metric_rows: list[dict], panels: list[dict], policies: list[dict]) -> list[dict]:
+    methods = ("repo_stratified_random", "entropy", "temporal_coreset")
     rows = []
+    cells = [
+        (panel["name"], scope)
+        for panel in panels
+        for scope in ("all_systems", "cluster_latest")
+    ]
     for policy in policies:
-        policy_decisions = {
-            panel["name"]: {
-                scope: reliability_decision(metric_rows, panel["name"], scope, policy)
-                for scope in ("all_systems", "cluster_latest")
-            }
-            for panel in panels
-        }
-        for method, key in methods.items():
-            cell_budgets = [
-                panel_decisions[scope][key]
-                for panel_decisions in policy_decisions.values()
-                for scope in ("all_systems", "cluster_latest")
-            ]
-            robust_budget = max(cell_budgets) if all(value is not None for value in cell_budgets) else None
+        for method in methods:
+            robust_budget = minimum_common_budget(metric_rows, cells, method, policy)
             rows.append({
                 "policy": policy["name"],
                 "minimum_mean_tau_b": policy["minimum_mean_tau_b"],
@@ -723,13 +746,15 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
             "test": duplicate_signature_summary(test) | Counter(row["attempts"] for row in test),
         }
 
-    random_budgets = [value["minimum_reliable_repo_stratified_budget"] for value in decisions.values()]
-    entropy_budgets = [value["minimum_reliable_entropy_budget"] for value in decisions.values()]
-    coreset_budgets = [value["minimum_reliable_temporal_coreset_budget"] for value in decisions.values()]
+    method_keys = {
+        "repo_stratified_random": "common_reliable_repo_stratified_budget",
+        "entropy": "common_reliable_entropy_budget",
+        "temporal_coreset": "common_reliable_temporal_coreset_budget",
+    }
+    all_system_cells = [(panel["name"], "all_systems") for panel in config["panels"]]
     cross_panel = {
-        "common_reliable_repo_stratified_budget": max(random_budgets) if all(value is not None for value in random_budgets) else None,
-        "common_reliable_entropy_budget": max(entropy_budgets) if all(value is not None for value in entropy_budgets) else None,
-        "common_reliable_temporal_coreset_budget": max(coreset_budgets) if all(value is not None for value in coreset_budgets) else None,
+        key: minimum_common_budget(metric_rows, all_system_cells, method, config)
+        for method, key in method_keys.items()
     }
     positive_control = validate_positive_control(metric_rows)
     sensitivity_decisions = {
@@ -739,30 +764,37 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         }
         for panel in config["panels"]
     }
-    decision_keys = (
-        "minimum_reliable_repo_stratified_budget",
-        "minimum_reliable_entropy_budget",
-        "minimum_reliable_temporal_coreset_budget",
-    )
     robust_panel_decisions = {
         panel: {
-            key: max(scope_decisions[scope][key] for scope in scope_decisions)
-            if all(scope_decisions[scope][key] is not None for scope in scope_decisions)
-            else None
-            for key in decision_keys
+            "minimum_reliable_repo_stratified_budget": minimum_common_budget(
+                metric_rows,
+                [(panel, "all_systems"), (panel, "cluster_latest")],
+                "repo_stratified_random",
+                config,
+            ),
+            "minimum_reliable_entropy_budget": minimum_common_budget(
+                metric_rows,
+                [(panel, "all_systems"), (panel, "cluster_latest")],
+                "entropy",
+                config,
+            ),
+            "minimum_reliable_temporal_coreset_budget": minimum_common_budget(
+                metric_rows,
+                [(panel, "all_systems"), (panel, "cluster_latest")],
+                "temporal_coreset",
+                config,
+            ),
         }
-        for panel, scope_decisions in sensitivity_decisions.items()
+        for panel in sensitivity_decisions
     }
+    robust_cells = [
+        (panel["name"], scope)
+        for panel in config["panels"]
+        for scope in ("all_systems", "cluster_latest")
+    ]
     robust_cross_panel = {
-        "common_reliable_repo_stratified_budget": max(
-            value["minimum_reliable_repo_stratified_budget"] for value in robust_panel_decisions.values()
-        ),
-        "common_reliable_entropy_budget": max(
-            value["minimum_reliable_entropy_budget"] for value in robust_panel_decisions.values()
-        ),
-        "common_reliable_temporal_coreset_budget": max(
-            value["minimum_reliable_temporal_coreset_budget"] for value in robust_panel_decisions.values()
-        ),
+        key: minimum_common_budget(metric_rows, robust_cells, method, config)
+        for method, key in method_keys.items()
     }
     threshold_rows = threshold_sensitivity(metric_rows, config["panels"], config["threshold_policies"])
     data_quality = {

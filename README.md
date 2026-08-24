@@ -1,8 +1,8 @@
 # Maintaining Discriminative Power in Coding-Agent Benchmarks
 
-This repository contains a fully automated, zero-API-cost pilot study of how
-the discriminative power of SWE-bench Verified changes over time and how many
-tasks are required to preserve the ordering of later, unseen submissions.
+This repository contains a fully automated, zero-API-cost empirical study of
+how the discriminative power of SWE-bench Verified changes over time and how
+many tasks are required to preserve the ordering of later systems.
 
 The workflow uses only public result files from the official
 [`swe-bench/experiments`](https://github.com/swe-bench/experiments) repository
@@ -12,19 +12,34 @@ depend on a local computer after the GitHub Actions job has started.
 
 ## Research questions
 
-1. How did task-level difficulty and discrimination change between the 2024
-   and 2025 SWE-bench Verified submissions?
-2. Can task subsets selected only from 2024 outcomes preserve the ranking of
-   unseen 2025 submissions?
+1. How did task-level difficulty and discrimination change across later
+   SWE-bench Verified submission cohorts?
+2. Can task subsets selected only from an earlier period preserve the ranking
+   of later systems in both open and standardized evaluation panels?
 3. Which reduced task budget reliably preserves held-out rankings, and do
    data-driven selectors outperform simple sampling baselines?
 
-## Pilot design
+## Formal design
+
+The paper-facing experiment keeps two evaluation environments separate:
+
+- **Open-submission panel:** 2024 selection and 2025 evaluation, using the
+  traditional Verified result artifacts.
+- **Standardized Bash-only panel:** 2025 selection and 2026 evaluation, using
+  explicit 500-task outcomes from the common mini-SWE-agent environment.
+
+The 2026 panel was not read by the pilot and therefore supplies the strongest
+time-external replication. See [`docs/formal_protocol.md`](docs/formal_protocol.md)
+for inclusion rules, dependence controls, uncertainty estimators, and claim
+boundaries.
+
+## Evaluation design
 
 - Unit of observation: one public submission-task outcome.
-- Training period: submissions whose directory names begin with `2024`.
-- Held-out period: submissions whose directory names begin with `2025`.
-- Task budgets: 25, 50, 100, 150, 200, and 250 of the 500 canonical instances.
+- Temporal split: tasks are selected from the earlier period of each panel and
+  evaluated only on its later systems.
+- Task budgets: 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 450,
+  475, and the 500-task positive control.
 - Primary metric: Kendall's tau-b between full-benchmark and subset rankings on
   held-out submissions.
 - Secondary metrics: top-10 overlap, pairwise direction agreement, calibrated
@@ -36,16 +51,17 @@ generalizes to future systems.
 
 ## Run remotely
 
-Open **Actions → SWE-bench Discriminative Power Pilot → Run workflow**. The job
-collects data, validates it, runs the analysis, and uploads a compact artifact
-named `swe-bench-discriminative-power-pilot` containing CSV, JSON, Markdown,
-and HTML results.
+Open **Actions → Formal Study - Benchmark Discriminative Power → Run
+workflow**. The job collects both panels, validates every included outcome
+matrix against the official leaderboard, runs the full analysis, and uploads
+`swe-bench-formal-discriminative-power-study` with CSV, JSON, Markdown, and
+HTML results. The pilot workflow remains available as a design-history check.
 
 ## Reproduce locally (optional)
 
 ```bash
 python -m unittest discover -s tests -v
-python src/experiment.py --config configs/pilot.json --output results
+python src/formal_experiment.py --config configs/formal.json --output formal-output
 ```
 
 Only the Python standard library is required.
@@ -56,7 +72,9 @@ This study evaluates the public leaderboard as a measurement system. A change
 between submission years is not interpreted as a causal effect of time, model
 scale, or agent architecture. Public submissions are correlated system
 variants and usually expose one outcome per task, so the analysis cannot
-estimate run-to-run model variance.
+estimate run-to-run model variance. Submission dates also do not identify the
+exact harness version; the formal design therefore does not pool its two
+execution environments.
 
 ## License
 

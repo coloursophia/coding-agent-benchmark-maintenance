@@ -1,0 +1,51 @@
+name: Formal Study - Benchmark Discriminative Power
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swe-bench-discriminative-power-formal
+  cancel-in-progress: false
+
+jobs:
+  formal-study:
+    name: Collect both panels, validate, analyze, and report
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out experiment package
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run deterministic unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Run formal two-panel study
+        run: python src/formal_experiment.py --config configs/formal.json --output formal-output
+
+      - name: Verify paper-facing outputs
+        run: |
+          test -s formal-output/report.html
+          test -s formal-output/summary.md
+          test -s formal-output/formal_metrics.csv
+          test -s formal-output/longitudinal.csv
+          test -s formal-output/formal_results.json
+          test -s formal-output/data_quality.json
+          test -s formal-output/source_manifest.json
+
+      - name: Upload formal research artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: swe-bench-formal-discriminative-power-study
+          path: formal-output/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9

@@ -1,0 +1,32 @@
+{
+  "task_budgets": [25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 450, 475, 500],
+  "random_repetitions": 500,
+  "cluster_bootstrap_repetitions": 1000,
+  "repository_bootstrap_repetitions": 2000,
+  "maximum_published_score_delta_pp": 0.15,
+  "minimum_mean_tau_b": 0.90,
+  "minimum_random_tau_b_q025": 0.85,
+  "minimum_deterministic_tau_b_q025": 0.80,
+  "panels": [
+    {
+      "name": "open-submission",
+      "source": "classic",
+      "train_year": 2024,
+      "test_year": 2025,
+      "cluster_field": "agent_family",
+      "top_k_systems": 10,
+      "minimum_train_systems": 30,
+      "minimum_test_systems": 30
+    },
+    {
+      "name": "standardized-bash",
+      "source": "bash-only",
+      "train_year": 2025,
+      "test_year": 2026,
+      "cluster_field": "model_provider",
+      "top_k_systems": 5,
+      "minimum_train_systems": 25,
+      "minimum_test_systems": 10
+    }
+  ]
+}

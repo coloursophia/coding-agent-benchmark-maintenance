@@ -4,7 +4,7 @@ title: "Maintaining Discriminative Power in Coding-Agent Benchmarks"
 type: software
 authors:
   - name: coloursophia
-version: 0.1.0-pilot
+version: 0.2.0-formal
 date-released: 2026-08-24
 license: MIT
 repository-code: "https://github.com/coloursophia/coding-agent-benchmark-maintenance"

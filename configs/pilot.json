@@ -1,0 +1,13 @@
+{
+  "train_year": 2024,
+  "test_year": 2025,
+  "task_budgets": [25, 50, 100, 150, 200, 250],
+  "random_repetitions": 100,
+  "top_k_systems": 10,
+  "minimum_usable_submissions": 100,
+  "minimum_submissions_per_period": 30,
+  "primary_budget": 200,
+  "minimum_heldout_tau_b": 0.90,
+  "minimum_entropy_absolute_change": 0.03,
+  "minimum_near_saturated_task_increase": 50
+}

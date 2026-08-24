@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this experiment package, please cite the archived release."
+title: "Maintaining Discriminative Power in Coding-Agent Benchmarks"
+type: software
+authors:
+  - name: coloursophia
+version: 0.1.0-pilot
+date-released: 2026-08-24
+license: MIT
+repository-code: "https://github.com/coloursophia/coding-agent-benchmark-maintenance"

@@ -471,6 +471,16 @@ def validate_config(config: dict) -> None:
         raise ValueError("every task budget must be an integer from 1 through 500")
     if 500 not in budgets:
         raise ValueError("the 500-task positive-control endpoint is required")
+    policies = config.get("threshold_policies", [])
+    if not policies or len({policy.get("name") for policy in policies}) != len(policies):
+        raise ValueError("threshold_policies must be non-empty and have unique names")
+    required_thresholds = {
+        "minimum_mean_tau_b",
+        "minimum_random_tau_b_q025",
+        "minimum_deterministic_tau_b_q025",
+    }
+    if any(not required_thresholds.issubset(policy) for policy in policies):
+        raise ValueError("every threshold policy must define all three reliability thresholds")
 
 
 def validate_positive_control(metric_rows: list[dict]) -> dict:
@@ -517,6 +527,40 @@ def reliability_decision(metric_rows: list[dict], panel: str, scope: str, config
             (row["budget"] for row in deterministic_candidates["temporal_coreset"]), default=None
         ),
     }
+
+
+def threshold_sensitivity(metric_rows: list[dict], panels: list[dict], policies: list[dict]) -> list[dict]:
+    methods = {
+        "repo_stratified_random": "minimum_reliable_repo_stratified_budget",
+        "entropy": "minimum_reliable_entropy_budget",
+        "temporal_coreset": "minimum_reliable_temporal_coreset_budget",
+    }
+    rows = []
+    for policy in policies:
+        policy_decisions = {
+            panel["name"]: {
+                scope: reliability_decision(metric_rows, panel["name"], scope, policy)
+                for scope in ("all_systems", "cluster_latest")
+            }
+            for panel in panels
+        }
+        for method, key in methods.items():
+            cell_budgets = [
+                panel_decisions[scope][key]
+                for panel_decisions in policy_decisions.values()
+                for scope in ("all_systems", "cluster_latest")
+            ]
+            robust_budget = max(cell_budgets) if all(value is not None for value in cell_budgets) else None
+            rows.append({
+                "policy": policy["name"],
+                "minimum_mean_tau_b": policy["minimum_mean_tau_b"],
+                "minimum_random_tau_b_q025": policy["minimum_random_tau_b_q025"],
+                "minimum_deterministic_tau_b_q025": policy["minimum_deterministic_tau_b_q025"],
+                "method": method,
+                "robust_budget": robust_budget,
+                "task_reduction_pct": 100.0 * (500 - robust_budget) / 500 if robust_budget is not None else "",
+            })
+    return rows
 
 
 def chart_svg(metric_rows: list[dict], panel: str, width: int = 760, height: int = 340) -> str:
@@ -611,6 +655,11 @@ def write_report(output: pathlib.Path, payload: dict, metric_rows: list[dict], l
     common = payload["robust_cross_panel_decision"]
     open_record = next(record for record in longitudinal if record["panel"] == "open-submission")
     bash_record = next(record for record in longitudinal if record["panel"] == "standardized-bash")
+    threshold_rows = "".join(
+        f'<tr><td>{html.escape(row["policy"])}</td><td>{html.escape(row["method"].replace("_", " "))}</td>'
+        f'<td>{row["minimum_mean_tau_b"]:.2f}</td><td>{row["robust_budget"]}</td><td>{row["task_reduction_pct"]:.0f}%</td></tr>'
+        for row in payload["threshold_sensitivity"]
+    )
 
     document = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Formal SWE-bench Discriminative-Power Study</title><style>
@@ -633,6 +682,7 @@ table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;ov
 {"".join(sections)}
 <h2>Scope, definitions, and experimental design</h2><p>The unit of analysis is a public system-task outcome on the canonical 500 SWE-bench Verified instances. The open-submission panel selects tasks from 2024 and evaluates 2025; the standardized Bash-only panel selects from 2025 and evaluates 2026. Kendall tau-b compares each reduced-task system ordering with the full 500-task ordering. Top-k overlap, pairwise agreement, calibrated score MAE, and repository coverage are secondary outcomes.</p>
 <h2>Data quality, uncertainty, and robustness</h2><p>All included task matrices reconcile to official aggregate scores. Random intervals vary task samples; deterministic intervals cluster systems by official agent label or model provider. Task-shift intervals resample source repositories. Exact duplicate signatures, enumerated exclusions, source hashes, and latest-per-cluster sensitivity results are retained in the machine-readable files. The 500-task endpoint is a mandatory positive control and fails the workflow if it does not reproduce the full ranking exactly.</p>
+<h3>Reliability-threshold sensitivity</h3><p>The robust budget is recomputed across both panels and both dependence scopes under lenient, primary, and strict threshold policies. This separates a genuine selector result from an artifact of the primary cutoff.</p><table><thead><tr><th>Policy</th><th>Method</th><th>Mean τ-b threshold</th><th>Robust tasks</th><th>Task reduction</th></tr></thead><tbody>{threshold_rows}</tbody></table>
 <h2>Limitations and next study decision</h2><p>Submission dates do not identify exact harness versions, public systems are selected and correlated, and most public results do not measure run-to-run model variance. The related-system sensitivity is consequential: it eliminates the apparent 450-task saving for stratified random sampling. Therefore the result supports benchmark-maintenance and task-budget claims only—not causal claims about model progress. Further robustness work should target score denominators and selector stability; it should not revive the rejected build-log hypothesis.</p>
 <h2>Further questions</h2><p>Does entropy selection remain stable under future standardized submissions, and can a selector trained across multiple frozen historical windows outperform the simple entropy baseline without approaching the full 500-task cost?</p>
 <p class="muted">Generated {html.escape(payload["generated_at_utc"])}. Experiments commit <code>{payload["source_commits"]["experiments"]}</code>; website commit <code>{payload["source_commits"]["website"]}</code>.</p>
@@ -714,6 +764,7 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
             value["minimum_reliable_temporal_coreset_budget"] for value in robust_panel_decisions.values()
         ),
     }
+    threshold_rows = threshold_sensitivity(metric_rows, config["panels"], config["threshold_policies"])
     data_quality = {
         "canonical_tasks": len(instance_ids),
         "classic": classic_quality,
@@ -741,6 +792,7 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         "sensitivity_decisions": sensitivity_decisions,
         "robust_panel_decisions": robust_panel_decisions,
         "robust_cross_panel_decision": robust_cross_panel,
+        "threshold_sensitivity": threshold_rows,
         "selected_instance_ids": selections,
     }
     (output / "formal_results.json").write_text(json.dumps(payload, indent=2, sort_keys=True, default=dict), encoding="utf-8")
@@ -762,6 +814,19 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         "top_k_overlap", "pairwise_direction_agreement", "calibrated_score_mae", "repository_coverage", "baseline_percentile",
     ]
     write_csv(output / "formal_metrics.csv", metric_rows, metric_fields)
+    write_csv(
+        output / "threshold_sensitivity.csv",
+        threshold_rows,
+        [
+            "policy",
+            "minimum_mean_tau_b",
+            "minimum_random_tau_b_q025",
+            "minimum_deterministic_tau_b_q025",
+            "method",
+            "robust_budget",
+            "task_reduction_pct",
+        ],
+    )
     longitudinal_fields = [key for key in longitudinal[0] if key != "transitions"]
     write_csv(output / "longitudinal.csv", longitudinal, longitudinal_fields)
     summary_lines = [
@@ -792,6 +857,15 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         f"- Robust repository-stratified budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_repo_stratified_budget']} tasks.",
         f"- Robust entropy budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_entropy_budget']} tasks.",
         f"- Robust temporal-core-set budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_temporal_coreset_budget']} tasks.",
+        "",
+        "## Reliability-threshold sensitivity",
+        "",
+    ])
+    summary_lines.extend(
+        f"- {row['policy']} / {row['method']}: {row['robust_budget']} tasks ({row['task_reduction_pct']:.0f}% reduction)."
+        for row in threshold_rows
+    )
+    summary_lines.extend([
         "",
         "The open-submission comparison is developmental because its 2025 outcomes were inspected in the pilot. The 2026 standardized panel is the time-external replication. Neither comparison is causal.",
     ])

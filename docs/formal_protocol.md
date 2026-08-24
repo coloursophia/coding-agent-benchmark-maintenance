@@ -109,6 +109,13 @@ budgets. The paper-facing robust decision also takes the larger budget across
 the all-systems and latest-entry-per-cluster scopes. The 500-task endpoint is
 retained as a mandatory positive control.
 
+Threshold dependence is reported with three fixed policies: lenient
+(mean tau-b 0.85; lower bound 0.80 for random and 0.75 for deterministic
+selectors), primary (0.90; 0.85/0.80), and strict (0.95; 0.90/0.85). Each
+policy recomputes the worst-case budget across both panels and both dependence
+scopes; it is a sensitivity analysis, not a replacement outcome selected after
+seeing the data.
+
 ## Known non-removable threats
 
 - Submission dates do not identify exact harness versions.

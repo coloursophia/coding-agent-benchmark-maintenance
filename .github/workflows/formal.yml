@@ -36,6 +36,7 @@ jobs:
           test -s formal-output/report.html
           test -s formal-output/summary.md
           test -s formal-output/formal_metrics.csv
+          test -s formal-output/threshold_sensitivity.csv
           test -s formal-output/longitudinal.csv
           test -s formal-output/formal_results.json
           test -s formal-output/data_quality.json

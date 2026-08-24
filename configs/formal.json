@@ -7,6 +7,11 @@
   "minimum_mean_tau_b": 0.90,
   "minimum_random_tau_b_q025": 0.85,
   "minimum_deterministic_tau_b_q025": 0.80,
+  "threshold_policies": [
+    {"name": "lenient", "minimum_mean_tau_b": 0.85, "minimum_random_tau_b_q025": 0.80, "minimum_deterministic_tau_b_q025": 0.75},
+    {"name": "primary", "minimum_mean_tau_b": 0.90, "minimum_random_tau_b_q025": 0.85, "minimum_deterministic_tau_b_q025": 0.80},
+    {"name": "strict", "minimum_mean_tau_b": 0.95, "minimum_random_tau_b_q025": 0.90, "minimum_deterministic_tau_b_q025": 0.85}
+  ],
   "panels": [
     {
       "name": "open-submission",

@@ -59,7 +59,15 @@ class FormalStudyTests(unittest.TestCase):
     def test_config_requires_full_benchmark_positive_control(self):
         with self.assertRaises(ValueError):
             formal.validate_config({"task_budgets": [25, 100, 250]})
-        formal.validate_config({"task_budgets": [25, 100, 500]})
+        formal.validate_config({
+            "task_budgets": [25, 100, 500],
+            "threshold_policies": [{
+                "name": "primary",
+                "minimum_mean_tau_b": 0.90,
+                "minimum_random_tau_b_q025": 0.85,
+                "minimum_deterministic_tau_b_q025": 0.80,
+            }],
+        })
 
     def test_positive_control_is_exact_and_complete(self):
         rows = []
@@ -97,6 +105,23 @@ class FormalStudyTests(unittest.TestCase):
         self.assertEqual(decision["minimum_reliable_repo_stratified_budget"], 150)
         self.assertEqual(decision["minimum_reliable_entropy_budget"], 100)
         self.assertEqual(decision["minimum_reliable_temporal_coreset_budget"], 150)
+
+    def test_threshold_sensitivity_takes_worst_panel_scope_budget(self):
+        policies = [{
+            "name": "primary",
+            "minimum_mean_tau_b": 0.90,
+            "minimum_random_tau_b_q025": 0.85,
+            "minimum_deterministic_tau_b_q025": 0.80,
+        }]
+        rows = []
+        for panel in ("a", "b"):
+            for scope in ("all_systems", "cluster_latest"):
+                for method in ("repo_stratified_random", "entropy", "temporal_coreset"):
+                    for budget in (100, 500):
+                        passes = budget == 500 or (panel == "a" and scope == "all_systems")
+                        rows.append({"panel": panel, "scope": scope, "method": method, "budget": budget, "tau_b": 0.95 if passes else 0.5, "tau_b_q025": 0.90 if passes else 0.4})
+        result = formal.threshold_sensitivity(rows, [{"name": "a"}, {"name": "b"}], policies)
+        self.assertEqual({row["robust_budget"] for row in result}, {500})
 
 
 if __name__ == "__main__":

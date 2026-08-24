@@ -78,6 +78,26 @@ class FormalStudyTests(unittest.TestCase):
         rows[0]["tau_b"] = 0.99
         self.assertFalse(formal.validate_positive_control(rows)["pass"])
 
+    def test_reliability_decision_uses_scope_and_lower_bound(self):
+        config = {
+            "minimum_mean_tau_b": 0.90,
+            "minimum_random_tau_b_q025": 0.85,
+            "minimum_deterministic_tau_b_q025": 0.80,
+        }
+        rows = []
+        for method, budget, tau, lower in (
+            ("repo_stratified_random", 100, 0.95, 0.84),
+            ("repo_stratified_random", 150, 0.91, 0.86),
+            ("entropy", 100, 0.91, 0.81),
+            ("temporal_coreset", 100, 0.89, 0.90),
+            ("temporal_coreset", 150, 0.92, 0.82),
+        ):
+            rows.append({"panel": "p", "scope": "cluster_latest", "method": method, "budget": budget, "tau_b": tau, "tau_b_q025": lower})
+        decision = formal.reliability_decision(rows, "p", "cluster_latest", config)
+        self.assertEqual(decision["minimum_reliable_repo_stratified_budget"], 150)
+        self.assertEqual(decision["minimum_reliable_entropy_budget"], 100)
+        self.assertEqual(decision["minimum_reliable_temporal_coreset_budget"], 150)
+
 
 if __name__ == "__main__":
     unittest.main()

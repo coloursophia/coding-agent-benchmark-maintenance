@@ -105,7 +105,9 @@ mean held-out tau-b at least 0.90 and empirical 2.5th percentile at least 0.85.
 For deterministic entropy and temporal-core-set selectors, the descriptive
 checkpoint additionally requires a cluster-bootstrap 2.5th percentile of at
 least 0.80. Cross-panel claims use the larger of the two panel-specific
-budgets. The 500-task endpoint is retained as a positive control.
+budgets. The paper-facing robust decision also takes the larger budget across
+the all-systems and latest-entry-per-cluster scopes. The 500-task endpoint is
+retained as a mandatory positive control.
 
 ## Known non-removable threats
 

@@ -491,6 +491,34 @@ def validate_positive_control(metric_rows: list[dict]) -> dict:
     }
 
 
+def reliability_decision(metric_rows: list[dict], panel: str, scope: str, config: dict) -> dict:
+    rows = [row for row in metric_rows if row["panel"] == panel and row["scope"] == scope]
+    random_candidates = [
+        row for row in rows
+        if row["method"] == "repo_stratified_random"
+        and row["tau_b"] >= config["minimum_mean_tau_b"]
+        and float(row["tau_b_q025"]) >= config["minimum_random_tau_b_q025"]
+    ]
+    deterministic_candidates = {
+        method: [
+            row for row in rows
+            if row["method"] == method
+            and row["tau_b"] >= config["minimum_mean_tau_b"]
+            and float(row["tau_b_q025"]) >= config["minimum_deterministic_tau_b_q025"]
+        ]
+        for method in ("entropy", "temporal_coreset")
+    }
+    return {
+        "minimum_reliable_repo_stratified_budget": min((row["budget"] for row in random_candidates), default=None),
+        "minimum_reliable_entropy_budget": min(
+            (row["budget"] for row in deterministic_candidates["entropy"]), default=None
+        ),
+        "minimum_reliable_temporal_coreset_budget": min(
+            (row["budget"] for row in deterministic_candidates["temporal_coreset"]), default=None
+        ),
+    }
+
+
 def chart_svg(metric_rows: list[dict], panel: str, width: int = 760, height: int = 340) -> str:
     selected = [row for row in metric_rows if row["panel"] == panel and row["scope"] == "all_systems"]
     budgets = sorted({row["budget"] for row in selected})
@@ -533,10 +561,12 @@ def write_report(output: pathlib.Path, payload: dict, metric_rows: list[dict], l
     sections = []
     for record in longitudinal:
         decision = payload["decisions"][record["panel"]]
+        sensitivity = payload["sensitivity_decisions"][record["panel"]]["cluster_latest"]
+        robust = payload["robust_panel_decisions"][record["panel"]]
         panel_cards.append(
             f'<div class="card"><div class="muted">{html.escape(record["panel"])}</div>'
-            f'<div class="value">{decision["minimum_reliable_repo_stratified_budget"] or "—"}</div>'
-            '<div>tasks for reliable stratified baseline</div></div>'
+            f'<div class="value">{robust["minimum_reliable_repo_stratified_budget"] or "—"}</div>'
+            '<div>tasks for stratified baseline, robust across scopes</div></div>'
         )
         longitudinal_rows.append(
             f'<tr><td>{html.escape(record["panel"])}</td><td>{record["train_year"]} → {record["test_year"]}</td>'
@@ -571,13 +601,14 @@ def write_report(output: pathlib.Path, payload: dict, metric_rows: list[dict], l
             f'<h3>{html.escape(record["panel"])} held-out ranking fidelity</h3>'
             f'<p>Task selection used only {record["train_year"]} outcomes; evaluation used {record["test_systems"]} systems from {record["test_year"]}. '
             f'The first reliable repository-stratified random budget was <strong>{decision["minimum_reliable_repo_stratified_budget"]} tasks</strong>. '
+            f'After retaining only the latest system in each related family/provider cluster, it was <strong>{sensitivity["minimum_reliable_repo_stratified_budget"]} tasks</strong>. '
             'Lines show mean held-out Kendall tau-b; the exact decision also requires the predeclared lower-bound threshold.</p>'
             f'{chart_svg(metric_rows, record["panel"])}'
             '<table><thead><tr><th>Method</th><th>Tasks</th><th>τ-b with interval</th><th>Top-k</th><th>Pairwise</th><th>MAE</th></tr></thead>'
             f'<tbody>{"".join(checkpoint_rows)}</tbody></table>'
         )
 
-    common = payload["cross_panel_decision"]
+    common = payload["robust_cross_panel_decision"]
     open_record = next(record for record in longitudinal if record["panel"] == "open-submission")
     bash_record = next(record for record in longitudinal if record["panel"] == "standardized-bash")
 
@@ -591,7 +622,7 @@ table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;ov
 </style></head><body><main><div class="eyebrow">Paper-facing formal experiment</div><h1>Temporal discriminative power in SWE-bench Verified</h1>
 <p class="muted">Two non-pooled temporal panels: heterogeneous open submissions and a standardized mini-SWE-agent Bash-only environment.</p>
 <h2>Technical summary</h2>
-<p><strong>The original 150-task pilot conclusion does not generalize.</strong> The time-external 2026 standardized panel required {common["common_reliable_repo_stratified_budget"]} repository-stratified random tasks and {common["common_reliable_temporal_coreset_budget"]} temporal-core-set tasks for a rule that held in both panels. Entropy selection reached the cross-panel rule at {common["common_reliable_entropy_budget"]} tasks. The 500-task positive control passed, and all included matrices reconciled to official scores.</p>
+<p><strong>The original 150-task pilot conclusion does not generalize.</strong> After requiring a rule to hold in both temporal panels and after retaining only the latest member of each related system family/provider cluster, repository-stratified random sampling required all {common["common_reliable_repo_stratified_budget"]} tasks. Entropy selection required {common["common_reliable_entropy_budget"]} tasks and the temporal core set required {common["common_reliable_temporal_coreset_budget"]}. The 500-task positive control passed, and all included matrices reconciled to official scores.</p>
 <div class="grid">{"".join(panel_cards)}</div>
 <div class="note"><strong>Interpretation boundary.</strong> The 2025 open-submission panel was inspected during the pilot and is developmental. The 2026 standardized panel was absent from the pilot and supplies the time-external replication. Submission dates do not identify exact harness versions.</div>
 <h2>Both panels became easier, but only the standardized panel clearly lost task entropy</h2>
@@ -602,7 +633,7 @@ table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;ov
 {"".join(sections)}
 <h2>Scope, definitions, and experimental design</h2><p>The unit of analysis is a public system-task outcome on the canonical 500 SWE-bench Verified instances. The open-submission panel selects tasks from 2024 and evaluates 2025; the standardized Bash-only panel selects from 2025 and evaluates 2026. Kendall tau-b compares each reduced-task system ordering with the full 500-task ordering. Top-k overlap, pairwise agreement, calibrated score MAE, and repository coverage are secondary outcomes.</p>
 <h2>Data quality, uncertainty, and robustness</h2><p>All included task matrices reconcile to official aggregate scores. Random intervals vary task samples; deterministic intervals cluster systems by official agent label or model provider. Task-shift intervals resample source repositories. Exact duplicate signatures, enumerated exclusions, source hashes, and latest-per-cluster sensitivity results are retained in the machine-readable files. The 500-task endpoint is a mandatory positive control and fails the workflow if it does not reproduce the full ranking exactly.</p>
-<h2>Limitations and next study decision</h2><p>Submission dates do not identify exact harness versions, public systems are selected and correlated, and most public results do not measure run-to-run model variance. Therefore the result supports benchmark-maintenance and task-budget claims only—not causal claims about model progress. For a paper, the defensible next step is robustness analysis around score denominators, related-system dependence, and selector stability; it is not to revive the rejected build-log hypothesis.</p>
+<h2>Limitations and next study decision</h2><p>Submission dates do not identify exact harness versions, public systems are selected and correlated, and most public results do not measure run-to-run model variance. The related-system sensitivity is consequential: it eliminates the apparent 450-task saving for stratified random sampling. Therefore the result supports benchmark-maintenance and task-budget claims only—not causal claims about model progress. Further robustness work should target score denominators and selector stability; it should not revive the rejected build-log hypothesis.</p>
 <h2>Further questions</h2><p>Does entropy selection remain stable under future standardized submissions, and can a selector trained across multiple frozen historical windows outperform the simple entropy baseline without approaching the full 500-task cost?</p>
 <p class="muted">Generated {html.escape(payload["generated_at_utc"])}. Experiments commit <code>{payload["source_commits"]["experiments"]}</code>; website commit <code>{payload["source_commits"]["website"]}</code>.</p>
 </main></body></html>'''
@@ -651,6 +682,38 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         "common_reliable_temporal_coreset_budget": max(coreset_budgets) if all(value is not None for value in coreset_budgets) else None,
     }
     positive_control = validate_positive_control(metric_rows)
+    sensitivity_decisions = {
+        panel["name"]: {
+            scope: reliability_decision(metric_rows, panel["name"], scope, config)
+            for scope in ("all_systems", "cluster_latest")
+        }
+        for panel in config["panels"]
+    }
+    decision_keys = (
+        "minimum_reliable_repo_stratified_budget",
+        "minimum_reliable_entropy_budget",
+        "minimum_reliable_temporal_coreset_budget",
+    )
+    robust_panel_decisions = {
+        panel: {
+            key: max(scope_decisions[scope][key] for scope in scope_decisions)
+            if all(scope_decisions[scope][key] is not None for scope in scope_decisions)
+            else None
+            for key in decision_keys
+        }
+        for panel, scope_decisions in sensitivity_decisions.items()
+    }
+    robust_cross_panel = {
+        "common_reliable_repo_stratified_budget": max(
+            value["minimum_reliable_repo_stratified_budget"] for value in robust_panel_decisions.values()
+        ),
+        "common_reliable_entropy_budget": max(
+            value["minimum_reliable_entropy_budget"] for value in robust_panel_decisions.values()
+        ),
+        "common_reliable_temporal_coreset_budget": max(
+            value["minimum_reliable_temporal_coreset_budget"] for value in robust_panel_decisions.values()
+        ),
+    }
     data_quality = {
         "canonical_tasks": len(instance_ids),
         "classic": classic_quality,
@@ -675,6 +738,9 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         "longitudinal": longitudinal,
         "decisions": decisions,
         "cross_panel_decision": cross_panel,
+        "sensitivity_decisions": sensitivity_decisions,
+        "robust_panel_decisions": robust_panel_decisions,
+        "robust_cross_panel_decision": robust_cross_panel,
         "selected_instance_ids": selections,
     }
     (output / "formal_results.json").write_text(json.dumps(payload, indent=2, sort_keys=True, default=dict), encoding="utf-8")
@@ -718,17 +784,20 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
             "",
         ])
     summary_lines.extend([
-        "## Cross-panel decision",
+        "## Cross-panel decisions",
         "",
-        f"- Common repository-stratified budget: {cross_panel['common_reliable_repo_stratified_budget']} tasks.",
-        f"- Common entropy budget: {cross_panel['common_reliable_entropy_budget']} tasks.",
-        f"- Common temporal-core-set budget: {cross_panel['common_reliable_temporal_coreset_budget']} tasks.",
+        f"- All-systems repository-stratified budget: {cross_panel['common_reliable_repo_stratified_budget']} tasks.",
+        f"- All-systems entropy budget: {cross_panel['common_reliable_entropy_budget']} tasks.",
+        f"- All-systems temporal-core-set budget: {cross_panel['common_reliable_temporal_coreset_budget']} tasks.",
+        f"- Robust repository-stratified budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_repo_stratified_budget']} tasks.",
+        f"- Robust entropy budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_entropy_budget']} tasks.",
+        f"- Robust temporal-core-set budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_temporal_coreset_budget']} tasks.",
         "",
         "The open-submission comparison is developmental because its 2025 outcomes were inspected in the pilot. The 2026 standardized panel is the time-external replication. Neither comparison is causal.",
     ])
     (output / "summary.md").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
     write_report(output, payload, metric_rows, longitudinal)
-    print(json.dumps({"data_quality_pass": data_quality["overall_pass"], "cross_panel": cross_panel, "decisions": decisions}, indent=2))
+    print(json.dumps({"data_quality_pass": data_quality["overall_pass"], "cross_panel": cross_panel, "robust_cross_panel": robust_cross_panel, "decisions": decisions, "sensitivity_decisions": sensitivity_decisions}, indent=2))
     if not data_quality["overall_pass"]:
         raise SystemExit("Formal data-quality gate failed")
 

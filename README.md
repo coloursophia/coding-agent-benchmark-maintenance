@@ -55,7 +55,9 @@ Open **Actions → Formal Study - Benchmark Discriminative Power → Run
 workflow**. The job collects both panels, validates every included outcome
 matrix against the official leaderboard, runs the full analysis, and uploads
 `swe-bench-formal-discriminative-power-study` with CSV, JSON, Markdown, and
-HTML results. The pilot workflow remains available as a design-history check.
+HTML results. Paper-facing task-budget claims must hold in both temporal panels
+and in both the all-systems and latest-entry-per-related-cluster scopes. The
+pilot workflow remains available as a design-history check.
 
 ## Reproduce locally (optional)
 

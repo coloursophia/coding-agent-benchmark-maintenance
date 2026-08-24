@@ -1,5 +1,9 @@
 # Maintaining Discriminative Power in Coding-Agent Benchmarks
 
+Manuscript writers should start from [`WRITING_BASELINE.md`](WRITING_BASELINE.md),
+which locks the final title, paper direction, experiment protocol, numerical
+results, claim boundaries, and reproducibility links.
+
 This repository contains a fully automated, zero-API-cost empirical study of
 how the discriminative power of SWE-bench Verified changes over time and how
 many tasks are required to preserve the ordering of later systems.

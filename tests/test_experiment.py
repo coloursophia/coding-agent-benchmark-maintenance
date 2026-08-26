@@ -40,6 +40,22 @@ class MetricTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(len(first), 3)
 
+    def test_top_k_overlap_includes_boundary_ties_without_name_breaking(self):
+        task_ids = ["r__1", "r__2"]
+        training = [
+            {"name": "train-a", "outcomes": [1, 0]},
+            {"name": "train-b", "outcomes": [0, 1]},
+        ]
+        test = [
+            {"name": "z-system", "outcomes": [1, 0]},
+            {"name": "a-system", "outcomes": [1, 0]},
+            {"name": "m-system", "outcomes": [0, 1]},
+        ]
+        metrics = experiment.evaluate_subset(task_ids, training, test, [0], 1)
+        self.assertEqual(metrics["full_top_k_set_size"], 3)
+        self.assertEqual(metrics["subset_top_k_set_size"], 2)
+        self.assertAlmostEqual(metrics["top_k_overlap"], 2 / 3)
+
 
 if __name__ == "__main__":
     unittest.main()

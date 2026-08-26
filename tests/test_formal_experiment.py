@@ -61,6 +61,12 @@ class FormalStudyTests(unittest.TestCase):
             formal.validate_config({"task_budgets": [25, 100, 250]})
         formal.validate_config({
             "task_budgets": [25, 100, 500],
+            "random_repetitions": 10,
+            "cluster_bootstrap_repetitions": 10,
+            "repository_bootstrap_repetitions": 10,
+            "two_way_bootstrap_repetitions": 10,
+            "harmonized_bootstrap_repetitions": 10,
+            "minimum_harmonized_tau_b_q025": 0.80,
             "threshold_policies": [{
                 "name": "primary",
                 "minimum_mean_tau_b": 0.90,
@@ -72,18 +78,39 @@ class FormalStudyTests(unittest.TestCase):
     def test_positive_control_is_exact_and_complete(self):
         rows = []
         for panel in ("a", "b"):
-            for method in ("random", "repo_stratified_random", "entropy", "temporal_coreset"):
-                rows.append({
-                    "panel": panel,
-                    "scope": "all_systems",
-                    "method": method,
-                    "budget": 500,
-                    "tau_b": 1.0,
-                    "top_k_overlap": 1.0,
-                    "calibrated_score_mae": 0.0,
-                })
+            for scope in ("all_systems", "cluster_latest"):
+                for method in ("random", "repo_stratified_random", "entropy", "temporal_coreset"):
+                    rows.append({
+                        "panel": panel,
+                        "scope": scope,
+                        "method": method,
+                        "budget": 500,
+                        "tau_b": 1.0,
+                        "top_k_overlap": 1.0,
+                        "calibrated_score_mae": 0.0,
+                    })
         self.assertTrue(formal.validate_positive_control(rows)["pass"])
         rows[0]["tau_b"] = 0.99
+        self.assertFalse(formal.validate_positive_control(rows)["pass"])
+
+    def test_metric_matrix_requires_every_unique_cell(self):
+        panels = [{"name": "a"}, {"name": "b"}]
+        budgets = [100, 500]
+        rows = []
+        for panel in ("a", "b"):
+            for scope in ("all_systems", "cluster_latest"):
+                for method in ("random", "repo_stratified_random", "entropy", "temporal_coreset"):
+                    for budget in budgets:
+                        rows.append({
+                            "panel": panel, "scope": scope, "method": method, "budget": budget,
+                            "tau_b": 1.0, "tau_b_q025": 1.0, "tau_b_q975": 1.0,
+                            "top_k_overlap": 1.0, "calibrated_score_mae": 0.0,
+                        })
+        self.assertTrue(formal.validate_metric_matrix(rows, panels, budgets)["pass"])
+        rows.pop()
+        self.assertFalse(formal.validate_metric_matrix(rows, panels, budgets)["pass"])
+        rows[0]["tau_b"] = 1.0
+        rows.pop()
         self.assertFalse(formal.validate_positive_control(rows)["pass"])
 
     def test_reliability_decision_uses_scope_and_lower_bound(self):
@@ -116,7 +143,7 @@ class FormalStudyTests(unittest.TestCase):
         rows = []
         for panel in ("a", "b"):
             for scope in ("all_systems", "cluster_latest"):
-                for method in ("repo_stratified_random", "entropy", "temporal_coreset"):
+                for method in ("random", "repo_stratified_random", "entropy", "temporal_coreset"):
                     for budget in (100, 500):
                         passes = budget == 500 or (panel == "a" and scope == "all_systems")
                         rows.append({"panel": panel, "scope": scope, "method": method, "budget": budget, "tau_b": 0.95 if passes else 0.5, "tau_b_q025": 0.90 if passes else 0.4})

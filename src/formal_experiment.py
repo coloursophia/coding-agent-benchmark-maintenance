@@ -118,6 +118,8 @@ def collect_classic(
             "outcomes": [int(instance_id in resolved_set) for instance_id in instance_ids],
             "resolved": len(resolved_set),
             "agent_family": normalize_label(agent, name),
+            "agent_lineage": normalize_label(agent, name),
+            "model_family": normalize_label(official.get("model_display"), official.get("model_org", "unknown")),
             "model_provider": normalize_label(official.get("model_org"), "unknown"),
             "attempts": attempts_category(official.get("tags")),
             "checked": official.get("checked"),
@@ -200,6 +202,8 @@ def collect_bash(
             "outcomes": outcomes,
             "resolved": sum(outcomes),
             "agent_family": normalize_label(official.get("agent"), "mini swe agent"),
+            "agent_lineage": normalize_label(official.get("agent"), "mini swe agent"),
+            "model_family": normalize_label(official.get("model_display"), official.get("model_org", "unknown")),
             "model_provider": normalize_label(official.get("model_org"), official.get("model_display", "unknown")),
             "attempts": attempts_category(official.get("tags")),
             "checked": official.get("checked"),
@@ -287,6 +291,66 @@ def repository_bootstrap_difference(
     return core.quantile(values, 0.025), core.quantile(values, 0.975)
 
 
+def two_way_bootstrap_difference(
+    instance_ids: list[str],
+    train_rows: list[dict],
+    test_rows: list[dict],
+    cluster_field: str,
+    transform,
+    repetitions: int,
+    seed: int,
+) -> tuple[float, float]:
+    """Resample task repositories and system clusters independently.
+
+    This sensitivity analysis adds system-cohort uncertainty to the repository-
+    only RQ1 interval.  It is descriptive because public leaderboard systems
+    are not a probability sample.
+    """
+    repositories = defaultdict(list)
+    for index, task_id in enumerate(instance_ids):
+        repositories[task_id.split("__", 1)[0]].append(index)
+
+    def cluster_groups(rows: list[dict]):
+        groups = defaultdict(list)
+        for index, row in enumerate(rows):
+            groups[row[cluster_field]].append(index)
+        return groups
+
+    train_groups = cluster_groups(train_rows)
+    test_groups = cluster_groups(test_rows)
+    repository_keys = sorted(repositories)
+    train_keys = sorted(train_groups)
+    test_keys = sorted(test_groups)
+    rng = random.Random(seed)
+    values = []
+    for _ in range(repetitions):
+        train_indices = [
+            index
+            for key in rng.choices(train_keys, k=len(train_keys))
+            for index in train_groups[key]
+        ]
+        test_indices = [
+            index
+            for key in rng.choices(test_keys, k=len(test_keys))
+            for index in test_groups[key]
+        ]
+        task_indices = [
+            index
+            for key in rng.choices(repository_keys, k=len(repository_keys))
+            for index in repositories[key]
+        ]
+        train_rates = [
+            statistics.fmean(train_rows[row_index]["outcomes"][task_index] for row_index in train_indices)
+            for task_index in task_indices
+        ]
+        test_rates = [
+            statistics.fmean(test_rows[row_index]["outcomes"][task_index] for row_index in test_indices)
+            for task_index in task_indices
+        ]
+        values.append(statistics.fmean(transform(b) - transform(a) for a, b in zip(train_rates, test_rates)))
+    return core.quantile(values, 0.025), core.quantile(values, 0.975)
+
+
 def task_band(rate: float) -> str:
     if rate <= 0.05:
         return "near_impossible"
@@ -300,7 +364,12 @@ def task_band(rate: float) -> str:
 
 
 def longitudinal_record(
-    panel: dict, instance_ids: list[str], train_rows: list[dict], test_rows: list[dict], bootstrap_repetitions: int
+    panel: dict,
+    instance_ids: list[str],
+    train_rows: list[dict],
+    test_rows: list[dict],
+    bootstrap_repetitions: int,
+    two_way_repetitions: int,
 ) -> dict:
     train_rates = core.task_rates(train_rows, len(instance_ids))
     test_rates = core.task_rates(test_rows, len(instance_ids))
@@ -308,6 +377,14 @@ def longitudinal_record(
     test_entropy = [core.binary_entropy(value) for value in test_rates]
     solve_ci = repository_bootstrap_difference(instance_ids, train_rates, test_rates, bootstrap_repetitions, 6100 + panel["train_year"])
     entropy_ci = repository_bootstrap_difference(instance_ids, train_entropy, test_entropy, bootstrap_repetitions, 7100 + panel["test_year"])
+    solve_two_way_ci = two_way_bootstrap_difference(
+        instance_ids, train_rows, test_rows, panel["cluster_field"], lambda value: value,
+        two_way_repetitions, 8100 + panel["train_year"],
+    )
+    entropy_two_way_ci = two_way_bootstrap_difference(
+        instance_ids, train_rows, test_rows, panel["cluster_field"], core.binary_entropy,
+        two_way_repetitions, 9100 + panel["test_year"],
+    )
     transitions = Counter((task_band(a), task_band(b)) for a, b in zip(train_rates, test_rates))
 
     def task_signatures(rows: list[dict]) -> int:
@@ -328,11 +405,15 @@ def longitudinal_record(
         "solve_rate_change": test_summary["mean_task_solve_rate"] - train_summary["mean_task_solve_rate"],
         "solve_rate_change_q025": solve_ci[0],
         "solve_rate_change_q975": solve_ci[1],
+        "solve_rate_change_two_way_q025": solve_two_way_ci[0],
+        "solve_rate_change_two_way_q975": solve_two_way_ci[1],
         "train_mean_entropy": train_summary["mean_binary_entropy"],
         "test_mean_entropy": test_summary["mean_binary_entropy"],
         "entropy_change": test_summary["mean_binary_entropy"] - train_summary["mean_binary_entropy"],
         "entropy_change_q025": entropy_ci[0],
         "entropy_change_q975": entropy_ci[1],
+        "entropy_change_two_way_q025": entropy_two_way_ci[0],
+        "entropy_change_two_way_q975": entropy_two_way_ci[1],
         "train_discriminative_tasks": train_summary["discriminative_20_80pct"],
         "test_discriminative_tasks": test_summary["discriminative_20_80pct"],
         "train_near_saturated_tasks": train_summary["near_saturated_ge_95pct"],
@@ -362,6 +443,8 @@ def metric_row(panel: str, scope: str, method: str, budget: int, metrics: dict, 
         "tau_b_q975": metrics.get("tau_b_q975", ""),
         "interval_type": interval_type,
         "top_k_overlap": metrics["top_k_overlap"],
+        "full_top_k_set_size": metrics["full_top_k_set_size"],
+        "subset_top_k_set_size": metrics["subset_top_k_set_size"],
         "pairwise_direction_agreement": metrics["pairwise_direction_agreement"],
         "calibrated_score_mae": metrics["calibrated_score_mae"],
         "repository_coverage": metrics["repository_coverage"],
@@ -456,6 +539,425 @@ def analyze_panel(panel: dict, instance_ids: list[str], source_rows: list[dict],
     return rows, decisions, selections
 
 
+def sampled_cluster_indices(rows: list[dict], cluster_field: str, rng: random.Random) -> list[int]:
+    groups = defaultdict(list)
+    for index, row in enumerate(rows):
+        groups[row[cluster_field]].append(index)
+    keys = sorted(groups)
+    return [index for key in rng.choices(keys, k=len(keys)) for index in groups[key]]
+
+
+def harmonized_curve_bootstrap(
+    panels: list[dict],
+    sources: dict[str, list[dict]],
+    instance_ids: list[str],
+    metric_rows: list[dict],
+    config: dict,
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """Use one curve-wise uncertainty protocol across all four selectors.
+
+    Every replicate resamples held-out system clusters once for the complete
+    13-budget curve.  Stochastic procedures additionally redraw their task
+    subset; deterministic procedures keep their trained subset fixed.  This
+    yields comparable system-population uncertainty while preserving the
+    task-selection variability intrinsic to random procedures.
+    """
+    budgets = config["task_budgets"]
+    methods = ("random", "repo_stratified_random", "entropy", "temporal_coreset")
+    repetitions = config["harmonized_bootstrap_repetitions"]
+    point_lookup = {
+        (row["panel"], row["scope"], row["method"], int(row["budget"])): float(row["tau_b"])
+        for row in metric_rows
+    }
+    curves = {}
+    cells = []
+    for panel_index, panel in enumerate(panels):
+        source_rows = sources[panel["source"]]
+        train = [row for row in source_rows if row["year"] == panel["train_year"]]
+        test = [row for row in source_rows if row["year"] == panel["test_year"]]
+        scope_rows = {
+            "all_systems": (train, test),
+            "cluster_latest": (
+                latest_per_cluster(train, panel["cluster_field"]),
+                latest_per_cluster(test, panel["cluster_field"]),
+            ),
+        }
+        for scope_index, (scope, (scope_train, scope_test)) in enumerate(scope_rows.items()):
+            cell = (panel["name"], scope)
+            cells.append(cell)
+            full_scores = core.subset_scores(scope_test, list(range(len(instance_ids))))
+            deterministic = {
+                ("entropy", budget): core.entropy_subset(instance_ids, scope_train, budget)
+                for budget in budgets
+            } | {
+                ("temporal_coreset", budget): core.temporal_coreset(instance_ids, scope_train, budget)
+                for budget in budgets
+            }
+            for repetition in range(repetitions):
+                cluster_rng = random.Random(1_000_000 + panel_index * 100_000 + scope_index * 10_000 + repetition)
+                indices = sampled_cluster_indices(scope_test, panel["cluster_field"], cluster_rng)
+                boot_full = [full_scores[index] for index in indices]
+                for budget in budgets:
+                    subsets = {
+                        "random": core.uniform_random_subset(
+                            instance_ids, budget,
+                            2_000_000 + panel_index * 1_000_000 + scope_index * 100_000 + budget * 500 + repetition,
+                        ),
+                        "repo_stratified_random": core.repository_stratified_subset(
+                            instance_ids, budget,
+                            3_000_000 + panel_index * 1_000_000 + scope_index * 100_000 + budget * 500 + repetition,
+                        ),
+                        "entropy": deterministic[("entropy", budget)],
+                        "temporal_coreset": deterministic[("temporal_coreset", budget)],
+                    }
+                    for method, subset in subsets.items():
+                        reduced = core.subset_scores(scope_test, subset)
+                        curves[(cell, method, repetition, budget)] = core.kendall_tau_b(
+                            boot_full, [reduced[index] for index in indices]
+                        )
+
+    output_rows = []
+    for cell in cells:
+        panel, scope = cell
+        for method in methods:
+            correction_values = []
+            for repetition in range(repetitions):
+                correction_values.append(min(
+                    curves[(cell, method, repetition, budget)]
+                    - point_lookup[(panel, scope, method, budget)]
+                    for budget in budgets
+                ))
+            simultaneous_correction = core.quantile(correction_values, 0.025)
+            for budget in budgets:
+                values = [curves[(cell, method, repetition, budget)] for repetition in range(repetitions)]
+                point = point_lookup[(panel, scope, method, budget)]
+                exact_endpoint = all(abs(value - point) <= 1e-12 for value in values)
+                output_rows.append({
+                    "panel": panel,
+                    "scope": scope,
+                    "method": method,
+                    "budget": budget,
+                    "tau_b": point,
+                    "tau_b_bootstrap_mean": statistics.fmean(values),
+                    "tau_b_q025": core.quantile(values, 0.025),
+                    "tau_b_q975": core.quantile(values, 0.975),
+                    # A zero-variance endpoint (notably the exact 500-task
+                    # positive control) remains exact instead of inheriting a
+                    # curve-wide deviation observed only at other budgets.
+                    "simultaneous_lower_band": point if exact_endpoint else point + simultaneous_correction,
+                    "repetitions": repetitions,
+                    "system_cluster_resampled": True,
+                    "task_subset_redrawn": method in {"random", "repo_stratified_random"},
+                })
+
+    harmonized_lookup = {
+        (row["panel"], row["scope"], row["method"], row["budget"]): row
+        for row in output_rows
+    }
+    mean_threshold = config["minimum_mean_tau_b"]
+    lower_threshold = config["minimum_harmonized_tau_b_q025"]
+
+    def common_budget(lower_field: str):
+        result = {}
+        for method in methods:
+            result[method] = next((
+                budget for budget in budgets
+                if all(
+                    harmonized_lookup[(panel, scope, method, budget)]["tau_b"] >= mean_threshold
+                    and harmonized_lookup[(panel, scope, method, budget)][lower_field] >= lower_threshold
+                    for panel, scope in cells
+                )
+            ), None)
+        return result
+
+    pointwise = common_budget("tau_b_q025")
+    simultaneous = common_budget("simultaneous_lower_band")
+    decision_rows = [{
+        "method": method,
+        "mean_tau_b_threshold": mean_threshold,
+        "common_lower_bound_threshold": lower_threshold,
+        "pointwise_common_reliable_budget": pointwise[method],
+        "simultaneous_band_common_reliable_budget": simultaneous[method],
+        "repetitions": repetitions,
+    } for method in methods]
+
+    stability_rows = []
+    for method in methods:
+        first_counts = Counter()
+        persistent_counts = Counter()
+        for repetition in range(repetitions):
+            passing = {
+                budget: all(curves[(cell, method, repetition, budget)] >= mean_threshold for cell in cells)
+                for budget in budgets
+            }
+            first_counts[next((budget for budget in budgets if passing[budget]), "no_pass")] += 1
+            persistent_counts[next((
+                budget for index, budget in enumerate(budgets)
+                if all(passing[later] for later in budgets[index:])
+            ), "no_pass")] += 1
+        for budget in budgets + ["no_pass"]:
+            stability_rows.append({
+                "method": method,
+                "selected_budget": budget,
+                "first_passing_count": first_counts[budget],
+                "first_passing_probability": first_counts[budget] / repetitions,
+                "persistent_rule_count": persistent_counts[budget],
+                "persistent_rule_probability": persistent_counts[budget] / repetitions,
+                "repetitions": repetitions,
+                "criterion": f"all four cells have tau_b >= {mean_threshold:.2f} in the same curve replicate",
+            })
+    return output_rows, decision_rows, stability_rows
+
+
+def selection_scope_sensitivity(
+    panels: list[dict], sources: dict[str, list[dict]], instance_ids: list[str], config: dict
+) -> tuple[list[dict], list[dict]]:
+    """Compare scope-trained task identities and fixed all-system selections."""
+    overlap_rows = []
+    fixed_rows = []
+    for panel_index, panel in enumerate(panels):
+        source_rows = sources[panel["source"]]
+        train = [row for row in source_rows if row["year"] == panel["train_year"]]
+        test = [row for row in source_rows if row["year"] == panel["test_year"]]
+        latest_train = latest_per_cluster(train, panel["cluster_field"])
+        latest_test = latest_per_cluster(test, panel["cluster_field"])
+        for budget in config["task_budgets"]:
+            selections = {
+                "entropy": (
+                    core.entropy_subset(instance_ids, train, budget),
+                    core.entropy_subset(instance_ids, latest_train, budget),
+                ),
+                "temporal_coreset": (
+                    core.temporal_coreset(instance_ids, train, budget),
+                    core.temporal_coreset(instance_ids, latest_train, budget),
+                ),
+            }
+            for method, (all_subset, latest_subset) in selections.items():
+                all_set, latest_set = set(all_subset), set(latest_subset)
+                overlap_rows.append({
+                    "panel": panel["name"],
+                    "method": method,
+                    "budget": budget,
+                    "jaccard_all_vs_cluster_latest": len(all_set & latest_set) / len(all_set | latest_set),
+                    "intersection_tasks": len(all_set & latest_set),
+                })
+
+            fixed_subsets = {
+                "random": core.uniform_random_subset(instance_ids, budget, 4_000_000 + panel_index * 100_000 + budget),
+                "repo_stratified_random": core.repository_stratified_subset(
+                    instance_ids, budget, 5_000_000 + panel_index * 100_000 + budget
+                ),
+                "entropy": selections["entropy"][0],
+                "temporal_coreset": selections["temporal_coreset"][0],
+            }
+            for method, subset in fixed_subsets.items():
+                for scope, scope_test in (("all_systems", test), ("cluster_latest", latest_test)):
+                    metrics = core.evaluate_subset(instance_ids, train, scope_test, subset, panel["top_k_systems"])
+                    full, reduced = score_vectors(instance_ids, scope_test, subset)
+                    q025, q975 = cluster_bootstrap_tau(
+                        full, reduced, [row[panel["cluster_field"]] for row in scope_test],
+                        config["cluster_bootstrap_repetitions"],
+                        6_000_000 + panel_index * 100_000 + budget * 10 + list(fixed_subsets).index(method),
+                    )
+                    fixed_rows.append({
+                        "panel": panel["name"],
+                        "scope": scope,
+                        "method": method,
+                        "budget": budget,
+                        "tau_b": metrics["tau_b"],
+                        "tau_b_q025": q025,
+                        "tau_b_q975": q975,
+                        "selection_training_scope": "all_systems",
+                        "calibration_training_scope": "all_systems",
+                    })
+    return overlap_rows, fixed_rows
+
+
+def cluster_mapping_records(panels: list[dict], sources: dict[str, list[dict]]) -> list[dict]:
+    records = []
+    for panel in panels:
+        relevant = [
+            row for row in sources[panel["source"]]
+            if row["year"] in {panel["train_year"], panel["test_year"]}
+        ]
+        latest_names = {
+            year: {row["name"] for row in latest_per_cluster(
+                [item for item in relevant if item["year"] == year], panel["cluster_field"]
+            )}
+            for year in (panel["train_year"], panel["test_year"])
+        }
+        for row in relevant:
+            records.append({
+                "panel": panel["name"],
+                "period": "training" if row["year"] == panel["train_year"] else "held_out",
+                "year": row["year"],
+                "system": row["name"],
+                "date": row["date"],
+                "agent_lineage": row["agent_lineage"],
+                "model_family": row["model_family"],
+                "model_provider": row["model_provider"],
+                "primary_cluster_field": panel["cluster_field"],
+                "primary_cluster": row[panel["cluster_field"]],
+                "retained_in_primary_cluster_latest": row["name"] in latest_names[row["year"]],
+            })
+    return records
+
+
+def small_cluster_bootstrap_stability(
+    panels: list[dict], sources: dict[str, list[dict]], instance_ids: list[str], config: dict
+) -> list[dict]:
+    """Audit lower-bound Monte Carlo stability where the held-out cluster count is small."""
+    output = []
+    repetition_counts = (1000, 5000)
+    seeds = (11, 29, 47, 71, 101)
+    for panel in panels:
+        source_rows = sources[panel["source"]]
+        train = [row for row in source_rows if row["year"] == panel["train_year"]]
+        test = [row for row in source_rows if row["year"] == panel["test_year"]]
+        scope_train = latest_per_cluster(train, panel["cluster_field"])
+        scope_test = latest_per_cluster(test, panel["cluster_field"])
+        cluster_count = len({row[panel["cluster_field"]] for row in scope_test})
+        if cluster_count > 10:
+            continue
+        for method in ("entropy", "temporal_coreset"):
+            for budget in config["task_budgets"]:
+                subset = (
+                    core.entropy_subset(instance_ids, scope_train, budget)
+                    if method == "entropy"
+                    else core.temporal_coreset(instance_ids, scope_train, budget)
+                )
+                full, reduced = score_vectors(instance_ids, scope_test, subset)
+                clusters = [row[panel["cluster_field"]] for row in scope_test]
+                for repetitions in repetition_counts:
+                    lower_values = []
+                    upper_values = []
+                    for seed in seeds:
+                        lower, upper = cluster_bootstrap_tau(full, reduced, clusters, repetitions, seed + budget)
+                        lower_values.append(lower)
+                        upper_values.append(upper)
+                    output.append({
+                        "panel": panel["name"],
+                        "scope": "cluster_latest",
+                        "method": method,
+                        "budget": budget,
+                        "clusters": cluster_count,
+                        "bootstrap_repetitions": repetitions,
+                        "seeds": len(seeds),
+                        "q025_min_across_seeds": min(lower_values),
+                        "q025_max_across_seeds": max(lower_values),
+                        "q025_range": max(lower_values) - min(lower_values),
+                        "q975_min_across_seeds": min(upper_values),
+                        "q975_max_across_seeds": max(upper_values),
+                    })
+    return output
+
+
+def alternative_cluster_sensitivity(
+    panels: list[dict], sources: dict[str, list[dict]], instance_ids: list[str], config: dict
+) -> list[dict]:
+    """Hold task selection fixed while varying the related-system definition."""
+    output = []
+    cluster_fields = ("agent_lineage", "model_family", "model_provider")
+    for panel_index, panel in enumerate(panels):
+        source_rows = sources[panel["source"]]
+        train = [row for row in source_rows if row["year"] == panel["train_year"]]
+        test = [row for row in source_rows if row["year"] == panel["test_year"]]
+        for budget in config["task_budgets"]:
+            fixed_subsets = {
+                "random": core.uniform_random_subset(instance_ids, budget, 7_000_000 + panel_index * 100_000 + budget),
+                "repo_stratified_random": core.repository_stratified_subset(
+                    instance_ids, budget, 8_000_000 + panel_index * 100_000 + budget
+                ),
+                "entropy": core.entropy_subset(instance_ids, train, budget),
+                "temporal_coreset": core.temporal_coreset(instance_ids, train, budget),
+            }
+            for cluster_index, cluster_field in enumerate(cluster_fields):
+                clustered_test = latest_per_cluster(test, cluster_field)
+                cluster_count = len({row[cluster_field] for row in test})
+                if cluster_count < 2:
+                    for method in fixed_subsets:
+                        output.append({
+                            "panel": panel["name"], "cluster_field": cluster_field,
+                            "clusters": cluster_count, "held_out_systems": len(clustered_test),
+                            "method": method, "budget": budget, "tau_b": "", "tau_b_q025": "",
+                            "tau_b_q975": "", "status": "unavailable_fewer_than_two_clusters",
+                            "selection_training_scope": "all_systems", "random_task_uncertainty": False,
+                        })
+                    continue
+                for method, subset in fixed_subsets.items():
+                    metrics = core.evaluate_subset(instance_ids, train, clustered_test, subset, panel["top_k_systems"])
+                    full, reduced = score_vectors(instance_ids, clustered_test, subset)
+                    q025, q975 = cluster_bootstrap_tau(
+                        full, reduced, [row[cluster_field] for row in clustered_test],
+                        config["cluster_bootstrap_repetitions"],
+                        9_000_000 + panel_index * 100_000 + cluster_index * 10_000 + budget * 10
+                        + list(fixed_subsets).index(method),
+                    )
+                    output.append({
+                        "panel": panel["name"], "cluster_field": cluster_field,
+                        "clusters": cluster_count, "held_out_systems": len(clustered_test),
+                        "method": method, "budget": budget, "tau_b": metrics["tau_b"],
+                        "tau_b_q025": q025, "tau_b_q975": q975, "status": "ok",
+                        "selection_training_scope": "all_systems", "random_task_uncertainty": False,
+                    })
+    return output
+
+
+def summarize_fixed_selection(rows: list[dict], config: dict) -> list[dict]:
+    cells = sorted({(row["panel"], row["scope"]) for row in rows})
+    budgets = config["task_budgets"]
+    output = []
+    for method in ("random", "repo_stratified_random", "entropy", "temporal_coreset"):
+        lookup = {
+            (row["panel"], row["scope"], int(row["budget"])): row
+            for row in rows if row["method"] == method
+        }
+        budget = next((
+            candidate for candidate in budgets
+            if all(
+                float(lookup[(panel, scope, candidate)]["tau_b"]) >= config["minimum_mean_tau_b"]
+                and float(lookup[(panel, scope, candidate)]["tau_b_q025"])
+                >= config["minimum_harmonized_tau_b_q025"]
+                for panel, scope in cells
+            )
+        ), None)
+        output.append({
+            "method": method,
+            "fixed_all_system_selection_common_budget": budget,
+            "mean_tau_b_threshold": config["minimum_mean_tau_b"],
+            "system_cluster_lower_bound_threshold": config["minimum_harmonized_tau_b_q025"],
+            "random_task_uncertainty": False,
+        })
+    return output
+
+
+def summarize_cluster_sensitivity(rows: list[dict], config: dict) -> list[dict]:
+    groups = sorted({(row["panel"], row["cluster_field"], row["method"]) for row in rows})
+    output = []
+    for panel, cluster_field, method in groups:
+        selected = [
+            row for row in rows
+            if row["panel"] == panel and row["cluster_field"] == cluster_field and row["method"] == method
+        ]
+        ok = [row for row in selected if row["status"] == "ok"]
+        budget = min((
+            int(row["budget"]) for row in ok
+            if float(row["tau_b"]) >= config["minimum_mean_tau_b"]
+            and float(row["tau_b_q025"]) >= config["minimum_harmonized_tau_b_q025"]
+        ), default=None)
+        output.append({
+            "panel": panel,
+            "cluster_field": cluster_field,
+            "method": method,
+            "clusters": selected[0]["clusters"],
+            "first_passing_budget": budget,
+            "status": selected[0]["status"],
+            "selection_training_scope": "all_systems",
+            "random_task_uncertainty": False,
+        })
+    return output
+
+
 def write_csv(path: pathlib.Path, rows: list[dict], fields: list[str]):
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
@@ -481,23 +983,76 @@ def validate_config(config: dict) -> None:
     }
     if any(not required_thresholds.issubset(policy) for policy in policies):
         raise ValueError("every threshold policy must define all three reliability thresholds")
+    for field in (
+        "random_repetitions", "cluster_bootstrap_repetitions", "repository_bootstrap_repetitions",
+        "two_way_bootstrap_repetitions", "harmonized_bootstrap_repetitions",
+    ):
+        if not isinstance(config.get(field), int) or config[field] <= 0:
+            raise ValueError(f"{field} must be a positive integer")
+    if not 0 <= config.get("minimum_harmonized_tau_b_q025", -1) <= 1:
+        raise ValueError("minimum_harmonized_tau_b_q025 must be between zero and one")
 
 
 def validate_positive_control(metric_rows: list[dict]) -> dict:
-    rows = [row for row in metric_rows if row["scope"] == "all_systems" and row["budget"] == 500]
-    expected = len({row["panel"] for row in metric_rows}) * 4
+    rows = [row for row in metric_rows if row["budget"] == 500]
+    panels = {row["panel"] for row in metric_rows}
+    scopes = {"all_systems", "cluster_latest"}
+    methods = {"random", "repo_stratified_random", "entropy", "temporal_coreset"}
+    expected_keys = {
+        (panel, scope, method)
+        for panel in panels
+        for scope in scopes
+        for method in methods
+    }
+    observed_keys = {(row["panel"], row["scope"], row["method"]) for row in rows}
+    duplicate_keys = sorted({
+        key for key in observed_keys
+        if sum((row["panel"], row["scope"], row["method"]) == key for row in rows) != 1
+    })
     failures = [
-        {key: row[key] for key in ("panel", "method", "tau_b", "top_k_overlap", "calibrated_score_mae")}
+        {key: row[key] for key in ("panel", "scope", "method", "tau_b", "top_k_overlap", "calibrated_score_mae")}
         for row in rows
         if abs(float(row["tau_b"]) - 1.0) > 1e-12
         or abs(float(row["top_k_overlap"]) - 1.0) > 1e-12
         or abs(float(row["calibrated_score_mae"])) > 1e-12
     ]
     return {
-        "expected_rows": expected,
+        "expected_rows": len(expected_keys),
         "observed_rows": len(rows),
+        "missing_cells": sorted(expected_keys - observed_keys),
+        "unexpected_cells": sorted(observed_keys - expected_keys),
+        "duplicate_cells": duplicate_keys,
         "failures": failures,
-        "pass": len(rows) == expected and not failures,
+        "pass": observed_keys == expected_keys and not duplicate_keys and not failures,
+    }
+
+
+def validate_metric_matrix(metric_rows: list[dict], panels: list[dict], budgets: list[int]) -> dict:
+    scopes = ("all_systems", "cluster_latest")
+    methods = ("random", "repo_stratified_random", "entropy", "temporal_coreset")
+    expected = {
+        (panel["name"], scope, method, budget)
+        for panel in panels for scope in scopes for method in methods for budget in budgets
+    }
+    keys = [
+        (row["panel"], row["scope"], row["method"], int(row["budget"]))
+        for row in metric_rows
+    ]
+    counts = Counter(keys)
+    observed = set(keys)
+    numeric_fields = ("tau_b", "tau_b_q025", "tau_b_q975", "top_k_overlap", "calibrated_score_mae")
+    incomplete = [
+        key for key, row in zip(keys, metric_rows)
+        if any(row.get(field, "") == "" for field in numeric_fields)
+    ]
+    return {
+        "expected_rows": len(expected),
+        "observed_rows": len(metric_rows),
+        "missing_cells": sorted(expected - observed),
+        "unexpected_cells": sorted(observed - expected),
+        "duplicate_cells": sorted(key for key, count in counts.items() if count != 1),
+        "incomplete_numeric_cells": incomplete,
+        "pass": observed == expected and all(count == 1 for count in counts.values()) and not incomplete,
     }
 
 
@@ -532,7 +1087,7 @@ def reliability_decision(metric_rows: list[dict], panel: str, scope: str, config
 def row_passes_policy(row: dict, method: str, policy: dict) -> bool:
     lower_bound = (
         policy["minimum_random_tau_b_q025"]
-        if method == "repo_stratified_random"
+        if method in {"random", "repo_stratified_random"}
         else policy["minimum_deterministic_tau_b_q025"]
     )
     return (
@@ -564,7 +1119,7 @@ def minimum_common_budget(
 
 
 def threshold_sensitivity(metric_rows: list[dict], panels: list[dict], policies: list[dict]) -> list[dict]:
-    methods = ("repo_stratified_random", "entropy", "temporal_coreset")
+    methods = ("random", "repo_stratified_random", "entropy", "temporal_coreset")
     rows = []
     cells = [
         (panel["name"], scope)
@@ -683,6 +1238,12 @@ def write_report(output: pathlib.Path, payload: dict, metric_rows: list[dict], l
         f'<td>{row["minimum_mean_tau_b"]:.2f}</td><td>{row["robust_budget"]}</td><td>{row["task_reduction_pct"]:.0f}%</td></tr>'
         for row in payload["threshold_sensitivity"]
     )
+    harmonized_rows = "".join(
+        f'<tr><td>{html.escape(row["method"].replace("_", " "))}</td>'
+        f'<td>{row["pointwise_common_reliable_budget"]}</td>'
+        f'<td>{row["simultaneous_band_common_reliable_budget"]}</td></tr>'
+        for row in payload["harmonized_uncertainty_decisions"]
+    )
 
     document = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Formal SWE-bench Discriminative-Power Study</title><style>
@@ -691,10 +1252,10 @@ h1{{font-size:36px;line-height:1.15;margin:4px 0}}h2{{margin-top:38px}}h3{{margi
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:22px 0}}.card{{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;box-shadow:0 4px 18px #0f172a0b}}
 .value{{font-size:30px;font-weight:780}}.muted{{color:#64748b}}.note{{border-left:4px solid #0369a1;background:#e0f2fe;padding:13px 16px;border-radius:7px;margin:20px 0}}code{{font-size:12px;overflow-wrap:anywhere}}
 table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13px}}th,td{{padding:9px 11px;border-bottom:1px solid #e2e8f0;text-align:right}}th:first-child,td:first-child{{text-align:left}}th{{background:#f1f5f9}}svg{{width:100%;height:auto;background:#fff;border-radius:12px;margin:8px 0 14px}}
-</style></head><body><main><div class="eyebrow">Paper-facing formal experiment</div><h1>Temporal discriminative power in SWE-bench Verified</h1>
+</style></head><body><main><div class="eyebrow">Formal experiment</div><h1>Temporal discriminative power in SWE-bench Verified</h1>
 <p class="muted">Two non-pooled temporal panels: heterogeneous open submissions and a standardized mini-SWE-agent Bash-only environment.</p>
 <h2>Technical summary</h2>
-<p><strong>The original 150-task pilot conclusion does not generalize.</strong> After requiring a rule to hold in both temporal panels and after retaining only the latest member of each related system family/provider cluster, repository-stratified random sampling required all {common["common_reliable_repo_stratified_budget"]} tasks. Entropy selection required {common["common_reliable_entropy_budget"]} tasks and the temporal core set required {common["common_reliable_temporal_coreset_budget"]}. The 500-task positive control passed, and all included matrices reconciled to official scores.</p>
+<p><strong>The original 150-task pilot conclusion does not generalize.</strong> Under the predeclared pointwise policy, uniform random, repository-stratified random, and entropy require {common["common_reliable_uniform_random_budget"]}, {common["common_reliable_repo_stratified_budget"]}, and {common["common_reliable_entropy_budget"]} tasks; temporal core requires {common["common_reliable_temporal_coreset_budget"]}. Under the harmonized simultaneous band all four require 500. The 16-cell positive control passed, and all included matrices reconciled to official scores.</p>
 <div class="grid">{"".join(panel_cards)}</div>
 <div class="note"><strong>Interpretation boundary.</strong> The 2025 open-submission panel was inspected during the pilot and is developmental. The 2026 standardized panel was absent from the pilot and supplies the time-external replication. Submission dates do not identify exact harness versions.</div>
 <h2>Both panels became easier, but only the standardized panel clearly lost task entropy</h2>
@@ -703,10 +1264,11 @@ table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;ov
 <h2>Reduced task budgets are panel-dependent</h2>
 <p>The charts compare four selectors at the same 13 predeclared budgets. Ranking fidelity alone is insufficient: a budget is called reliable only when its mean and lower uncertainty bound both cross the protocol thresholds.</p>
 {"".join(sections)}
-<h2>Scope, definitions, and experimental design</h2><p>The unit of analysis is a public system-task outcome on the canonical 500 SWE-bench Verified instances. The open-submission panel selects tasks from 2024 and evaluates 2025; the standardized Bash-only panel selects from 2025 and evaluates 2026. Kendall tau-b compares each reduced-task system ordering with the full 500-task ordering. Top-k overlap, pairwise agreement, calibrated score MAE, and repository coverage are secondary outcomes.</p>
-<h2>Data quality, uncertainty, and robustness</h2><p>All included task matrices reconcile to official aggregate scores. Random intervals vary task samples; deterministic intervals cluster systems by official agent label or model provider. Task-shift intervals resample source repositories. Exact duplicate signatures, enumerated exclusions, source hashes, and latest-per-cluster sensitivity results are retained in the machine-readable files. The 500-task endpoint is a mandatory positive control and fails the workflow if it does not reproduce the full ranking exactly.</p>
+<h2>Scope, definitions, and experimental design</h2><p>The unit of analysis is a public system-task outcome on the canonical 500 SWE-bench Verified instances. The open-submission panel selects tasks from 2024 and evaluates 2025; the standardized Bash-only panel selects from 2025 and evaluates 2026. Kendall’s τ-b compares each reduced-task system ordering with the full 500-task ordering. The top-k diagnostic includes every boundary tie and reports Jaccard overlap.</p>
+<h2>Data quality, uncertainty, and robustness</h2><p>All included task matrices reconcile to official aggregate scores. The original intervals separately describe task-selection or system-cluster variation. The harmonized curve bootstrap resamples held-out system clusters for every procedure and additionally redraws tasks for stochastic procedures. The 500-task endpoint is a mandatory 16-cell positive control.</p>
+<h3>Harmonized uncertainty</h3><table><thead><tr><th>Procedure</th><th>Pointwise tasks</th><th>Simultaneous-band tasks</th></tr></thead><tbody>{harmonized_rows}</tbody></table>
 <h3>Reliability-threshold sensitivity</h3><p>The robust budget is recomputed across both panels and both dependence scopes under lenient, primary, and strict threshold policies. This separates a genuine selector result from an artifact of the primary cutoff.</p><table><thead><tr><th>Policy</th><th>Method</th><th>Mean τ-b threshold</th><th>Robust tasks</th><th>Task reduction</th></tr></thead><tbody>{threshold_rows}</tbody></table>
-<h2>Limitations and next study decision</h2><p>Submission dates do not identify exact harness versions, public systems are selected and correlated, and most public results do not measure run-to-run model variance. The related-system sensitivity is consequential: it eliminates the apparent 450-task saving for stratified random sampling. Therefore the result supports benchmark-maintenance and task-budget claims only—not causal claims about model progress. Further robustness work should target score denominators and selector stability; it should not revive the rejected build-log hypothesis.</p>
+<h2>Limitations and next study decision</h2><p>Submission dates do not identify exact harness versions, public systems are selected and correlated, cluster definitions are approximate, and most public results do not measure run-to-run model variance. A common procedure budget does not identify one fixed task set. Therefore the result supports benchmark-maintenance claims only—not causal claims about model progress or a permanent 475-task subset.</p>
 <h2>Further questions</h2><p>Does entropy selection remain stable under future standardized submissions, and can a selector trained across multiple frozen historical windows outperform the simple entropy baseline without approaching the full 500-task cost?</p>
 <p class="muted">Generated {html.escape(payload["generated_at_utc"])}. Experiments commit <code>{payload["source_commits"]["experiments"]}</code>; website commit <code>{payload["source_commits"]["website"]}</code>.</p>
 </main></body></html>'''
@@ -736,7 +1298,14 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         source_rows = sources[panel["source"]]
         train = [row for row in source_rows if row["year"] == panel["train_year"]]
         test = [row for row in source_rows if row["year"] == panel["test_year"]]
-        longitudinal.append(longitudinal_record(panel, instance_ids, train, test, config["repository_bootstrap_repetitions"]))
+        longitudinal.append(longitudinal_record(
+            panel,
+            instance_ids,
+            train,
+            test,
+            config["repository_bootstrap_repetitions"],
+            config["two_way_bootstrap_repetitions"],
+        ))
         rows, panel_decisions, panel_selections = analyze_panel(panel, instance_ids, source_rows, config)
         metric_rows.extend(rows)
         decisions[panel["name"]] = panel_decisions
@@ -747,6 +1316,7 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         }
 
     method_keys = {
+        "random": "common_reliable_uniform_random_budget",
         "repo_stratified_random": "common_reliable_repo_stratified_budget",
         "entropy": "common_reliable_entropy_budget",
         "temporal_coreset": "common_reliable_temporal_coreset_budget",
@@ -757,6 +1327,7 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         for method, key in method_keys.items()
     }
     positive_control = validate_positive_control(metric_rows)
+    metric_matrix = validate_metric_matrix(metric_rows, config["panels"], config["task_budgets"])
     sensitivity_decisions = {
         panel["name"]: {
             scope: reliability_decision(metric_rows, panel["name"], scope, config)
@@ -797,6 +1368,21 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         for method, key in method_keys.items()
     }
     threshold_rows = threshold_sensitivity(metric_rows, config["panels"], config["threshold_policies"])
+    harmonized_rows, harmonized_decisions, budget_stability = harmonized_curve_bootstrap(
+        config["panels"], sources, instance_ids, metric_rows, config
+    )
+    selection_overlap, fixed_selection = selection_scope_sensitivity(
+        config["panels"], sources, instance_ids, config
+    )
+    cluster_mapping = cluster_mapping_records(config["panels"], sources)
+    bootstrap_stability = small_cluster_bootstrap_stability(
+        config["panels"], sources, instance_ids, config
+    )
+    cluster_sensitivity = alternative_cluster_sensitivity(
+        config["panels"], sources, instance_ids, config
+    )
+    fixed_selection_decisions = summarize_fixed_selection(fixed_selection, config)
+    cluster_sensitivity_decisions = summarize_cluster_sensitivity(cluster_sensitivity, config)
     data_quality = {
         "canonical_tasks": len(instance_ids),
         "classic": classic_quality,
@@ -804,6 +1390,7 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         "panel_period_checks": panel_quality,
         "cross_format_folder_overlap": len({row["name"] for row in classic_rows} & {row["name"] for row in bash_rows}),
         "positive_control": positive_control,
+        "metric_matrix": metric_matrix,
         "overall_pass": (
             classic_quality["score_reconciliation_failures"] == 0
             and classic_quality["metadata_missing"] == 0
@@ -811,6 +1398,7 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
             and bash_quality["metadata_missing"] == 0
             and bash_quality["explicit_500_task_matrices"] == bash_quality["usable"]
             and positive_control["pass"]
+            and metric_matrix["pass"]
         ),
     }
     payload = {
@@ -825,6 +1413,9 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         "robust_panel_decisions": robust_panel_decisions,
         "robust_cross_panel_decision": robust_cross_panel,
         "threshold_sensitivity": threshold_rows,
+        "harmonized_uncertainty_decisions": harmonized_decisions,
+        "fixed_selection_decisions": fixed_selection_decisions,
+        "cluster_sensitivity_decisions": cluster_sensitivity_decisions,
         "selected_instance_ids": selections,
     }
     (output / "formal_results.json").write_text(json.dumps(payload, indent=2, sort_keys=True, default=dict), encoding="utf-8")
@@ -843,7 +1434,8 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
     (output / "source_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     metric_fields = [
         "panel", "scope", "method", "budget", "tau_b", "tau_b_q025", "tau_b_q975", "interval_type",
-        "top_k_overlap", "pairwise_direction_agreement", "calibrated_score_mae", "repository_coverage", "baseline_percentile",
+        "top_k_overlap", "full_top_k_set_size", "subset_top_k_set_size",
+        "pairwise_direction_agreement", "calibrated_score_mae", "repository_coverage", "baseline_percentile",
     ]
     write_csv(output / "formal_metrics.csv", metric_rows, metric_fields)
     write_csv(
@@ -857,6 +1449,86 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
             "method",
             "robust_budget",
             "task_reduction_pct",
+        ],
+    )
+    write_csv(
+        output / "harmonized_metrics.csv",
+        harmonized_rows,
+        [
+            "panel", "scope", "method", "budget", "tau_b", "tau_b_bootstrap_mean",
+            "tau_b_q025", "tau_b_q975", "simultaneous_lower_band", "repetitions",
+            "system_cluster_resampled", "task_subset_redrawn",
+        ],
+    )
+    write_csv(
+        output / "harmonized_decisions.csv",
+        harmonized_decisions,
+        [
+            "method", "mean_tau_b_threshold", "common_lower_bound_threshold",
+            "pointwise_common_reliable_budget", "simultaneous_band_common_reliable_budget", "repetitions",
+        ],
+    )
+    write_csv(
+        output / "budget_stability.csv",
+        budget_stability,
+        [
+            "method", "selected_budget", "first_passing_count", "first_passing_probability",
+            "persistent_rule_count", "persistent_rule_probability", "repetitions", "criterion",
+        ],
+    )
+    write_csv(
+        output / "selection_overlap.csv",
+        selection_overlap,
+        ["panel", "method", "budget", "jaccard_all_vs_cluster_latest", "intersection_tasks"],
+    )
+    write_csv(
+        output / "fixed_selection_sensitivity.csv",
+        fixed_selection,
+        [
+            "panel", "scope", "method", "budget", "tau_b", "tau_b_q025", "tau_b_q975",
+            "selection_training_scope", "calibration_training_scope",
+        ],
+    )
+    write_csv(
+        output / "fixed_selection_decisions.csv",
+        fixed_selection_decisions,
+        [
+            "method", "fixed_all_system_selection_common_budget", "mean_tau_b_threshold",
+            "system_cluster_lower_bound_threshold", "random_task_uncertainty",
+        ],
+    )
+    write_csv(
+        output / "cluster_mapping.csv",
+        cluster_mapping,
+        [
+            "panel", "period", "year", "system", "date", "agent_lineage", "model_family",
+            "model_provider", "primary_cluster_field", "primary_cluster", "retained_in_primary_cluster_latest",
+        ],
+    )
+    write_csv(
+        output / "bootstrap_stability.csv",
+        bootstrap_stability,
+        [
+            "panel", "scope", "method", "budget", "clusters", "bootstrap_repetitions", "seeds",
+            "q025_min_across_seeds", "q025_max_across_seeds", "q025_range",
+            "q975_min_across_seeds", "q975_max_across_seeds",
+        ],
+    )
+    write_csv(
+        output / "cluster_sensitivity.csv",
+        cluster_sensitivity,
+        [
+            "panel", "cluster_field", "clusters", "held_out_systems", "method", "budget",
+            "tau_b", "tau_b_q025", "tau_b_q975", "status", "selection_training_scope",
+            "random_task_uncertainty",
+        ],
+    )
+    write_csv(
+        output / "cluster_sensitivity_decisions.csv",
+        cluster_sensitivity_decisions,
+        [
+            "panel", "cluster_field", "method", "clusters", "first_passing_budget", "status",
+            "selection_training_scope", "random_task_uncertainty",
         ],
     )
     longitudinal_fields = [key for key in longitudinal[0] if key != "transitions"]
@@ -883,9 +1555,11 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
     summary_lines.extend([
         "## Cross-panel decisions",
         "",
+        f"- All-systems uniform-random budget: {cross_panel['common_reliable_uniform_random_budget']} tasks.",
         f"- All-systems repository-stratified budget: {cross_panel['common_reliable_repo_stratified_budget']} tasks.",
         f"- All-systems entropy budget: {cross_panel['common_reliable_entropy_budget']} tasks.",
         f"- All-systems temporal-core-set budget: {cross_panel['common_reliable_temporal_coreset_budget']} tasks.",
+        f"- Robust uniform-random budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_uniform_random_budget']} tasks.",
         f"- Robust repository-stratified budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_repo_stratified_budget']} tasks.",
         f"- Robust entropy budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_entropy_budget']} tasks.",
         f"- Robust temporal-core-set budget across all/latest-cluster scopes: {robust_cross_panel['common_reliable_temporal_coreset_budget']} tasks.",
@@ -898,6 +1572,17 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         for row in threshold_rows
     )
     summary_lines.extend([
+        "",
+        "## Harmonized curve uncertainty",
+        "",
+    ])
+    summary_lines.extend(
+        f"- {row['method']}: pointwise {row['pointwise_common_reliable_budget']} tasks; simultaneous band {row['simultaneous_band_common_reliable_budget']} tasks."
+        for row in harmonized_decisions
+    )
+    summary_lines.extend([
+        "",
+        f"The 500-task positive control passed all {positive_control['observed_rows']} expected panel-scope-method cells.",
         "",
         "The open-submission comparison is developmental because its 2025 outcomes were inspected in the pilot. The 2026 standardized panel is the time-external replication. Neither comparison is causal.",
     ])

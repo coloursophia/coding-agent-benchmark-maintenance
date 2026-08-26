@@ -65,3 +65,33 @@ Verified on 2026-08-26 against publisher, venue, DOI, or official paper pages.
     *SWE-Bench+: Enhanced Coding Benchmark for LLMs.* arXiv:2410.06992.
     https://arxiv.org/abs/2410.06992
     - Neighboring work on benchmark task validity and evaluation rigor.
+
+12. Gusev, R., and Zaytsev, A. (2026). *Benchmarking on Tasks That Matter:
+    Dataset Selection for Preserving Model Rankings.* Proceedings of the 32nd
+    ACM SIGKDD Conference on Knowledge Discovery and Data Mining.
+    https://doi.org/10.1145/3770855.3817569
+    - Direct benchmark-subset work whose objective is preserving model
+      rankings; it anchors the manuscript's narrower time-forward coding-agent
+      contribution.
+
+13. Wang, S., Wang, C., Fu, W., Min, Y., Feng, M., Guan, I., Hu, X., He, C.,
+    Wang, C., Yang, K., Ren, X., Huang, F., Liu, D., and Zhang, L. (2025). *Rethinking LLM
+    Evaluation: Can We Evaluate LLMs with 200x Less Data?* arXiv:2510.10457.
+    https://arxiv.org/abs/2510.10457
+    - EssenceBench combines retrieval, clustering, and rank-preservation
+      diagnostics; the manuscript distinguishes its time-forward and
+      dependency-aware estimand.
+
+14. Kaltenecker, C., Mühlbauer, S., Grebhahn, A., Siegmund, N., and Apel, S.
+    (2023). *Performance
+    evolution of configurable software systems: an empirical study.*
+    Empirical Software Engineering, 28, 152.
+    https://doi.org/10.1007/s10664-023-10338-3
+    - Supports treating performance and ordering as quantities that can change
+      across software evolution rather than remain time invariant.
+
+15. Laaber, C., Gall, H. C., and Leitner, P. (2021). *Applying test case
+    prioritization to software microbenchmarks.* Empirical Software
+    Engineering, 26, 133. https://doi.org/10.1007/s10664-021-10037-x
+    - Connects benchmark-cost reduction to prioritization while underscoring
+      that the retained operational property must be explicitly validated.

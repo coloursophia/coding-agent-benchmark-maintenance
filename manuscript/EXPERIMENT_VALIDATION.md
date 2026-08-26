@@ -1,86 +1,71 @@
-# Corrected Formal Experiment Validation
+# V2 experiment validation
 
-**Assessment:** Ready for manuscript use, with the stated construct and
-external-validity limitations.
+**Assessment:** The local v2 formal run is internally consistent and suitable
+for manuscript revision. Public archival availability remains unresolved.
 
-**Validated run:** GitHub Actions run 32747736415, completed successfully on
-2026-08-24 at commit `5d012416189c888948c99b3544e4f8cf4175b165`.
+## Validated inputs and run
 
-**Artifact:** `artifacts/github-run-32747736415.zip`
+- Experiments source commit: `1faa91cade0562ba62b66c1c99e71f7b72d96f13`.
+- Website source commit: `f42505b21a0eb31a9cc1204caafcbe0da6c1a259`.
+- Configuration: `configs/formal.json`.
+- Local output: `formal-output-v2-local`.
+- Data-quality decision: all checks passed.
 
-**Artifact SHA-256:**
-`deb302cb6b41eeddbc17e066a6535e485e7c7a1be9a98b58115bd3df4c26793b`
+The classic source contains 133 usable matrices after one unlisted submission
+was excluded. The standardized Bash-only source contains 38 usable matrices
+after seven missing/invalid full matrices and two score mismatches were
+excluded. Both panels retain the canonical 500 task identifiers and are not
+pooled.
 
-## Validation scope
+## Structural checks
 
-- Confirmed that the downloaded ZIP digest matches the digest reported by
-  GitHub Actions.
-- Confirmed 208 unique metric rows: 2 panels x 2 dependence scopes x 4
-  methods x 13 budgets.
-- Found no duplicate panel-scope-method-budget cells and no missing primary
-  rank metrics.
-- Independently recomputed all nine threshold-sensitivity decisions directly
-  from `formal_metrics.csv`.
-- Confirmed the 500-task positive control: 8 expected rows, 8 observed rows,
-  no failures.
-- Confirmed source commits and matrix digests against the source manifest and
-  data-quality report.
-- Ran all 16 unit tests, including the non-monotone common-budget regression;
-  all passed.
+- `formal_metrics.csv`: 208 rows and 208 unique
+  panel–scope–method–budget keys.
+- `harmonized_metrics.csv`: 208 rows and 208 unique keys.
+- `fixed_selection_sensitivity.csv`: 208 rows.
+- `budget_stability.csv`: 56 rows.
+- `selection_overlap.csv`: 52 rows.
+- `cluster_mapping.csv`: 167 system records.
+- `cluster_sensitivity.csv`: 312 rows.
+- `bootstrap_stability.csv`: 52 rows.
+- All τ_b values lie in [-1, 1]; all tie-aware top-k Jaccard values lie in
+  [0, 1]; top-set size fields are populated.
+- Tables 3–9 in the manuscript reproduce from the formal artifact with
+  `manuscript/scripts/sync_result_tables.py --check`.
 
-## Corrected primary results
+## Positive control and tests
 
-| Method | Exact common budget | Task reduction |
-|---|---:|---:|
-| Repository-stratified random | 500 | 0% |
-| Training-period entropy | 500 | 0% |
-| Temporal core set | 475 | 5% |
+The 500-task gate expects and observes all 16 combinations of two panels, two
+scopes, and four methods. Every endpoint has τ_b=1, top-k Jaccard=1, and zero
+calibrated score error. Eighteen unit tests pass, including the inclusive
+boundary-tie definition and a missing-cell failure for the positive control.
 
-The common budget is the smallest single budget that passes every panel and
-dependence scope at that exact budget. It is not the maximum of cell-specific
-minimum passing budgets.
+## Decision checks
 
-## Threshold sensitivity
+The predeclared mixed-source pointwise policy gives common reliable procedure
+budgets of 500, 500, 500, and 475 tasks for uniform random,
+repository-stratified random, entropy, and temporal core, respectively. The
+harmonized pointwise analysis reproduces those budgets with a common 0.80 lower
+threshold. The simultaneous curve band changes temporal core from 475 to 500;
+all four procedures then require 500 tasks.
 
-| Policy | Repository-stratified random | Entropy | Temporal core set |
-|---|---:|---:|---:|
-| Lenient | 500 | 250 | 475 |
-| Primary | 500 | 500 | 475 |
-| Strict | 500 | 500 | 475 |
+At 475 tasks, all-system versus cluster-latest task-set Jaccard overlap is
+0.951 (open) and 0.927 (standardized) for temporal core. The fixed all-system
+selection sensitivity yields procedure budgets 300, 475, 400, and 500, but the
+two random rows omit task-selection uncertainty and are diagnostic only.
 
-## Material correction
+The RQ1 two-way intervals preserve the directional interpretation. Alternative
+cluster definitions materially change several first-passing budgets and the
+standardized agent-lineage definition collapses to one cluster. Across five
+seeds, the seven-cluster lower-bound range can reach 0.256 at low budgets;
+temporal core at 475 in the standardized cluster-latest scope remains exactly
+1.0 at both 1,000 and 5,000 bootstrap repetitions.
 
-The prior aggregation treated pass/fail status as monotone in task budget.
-That assumption is empirically false for deterministic selectors. In the
-standardized Bash-only panel's cluster-latest scope, entropy passes the primary
-cell rule at 150, 200, 250, and 300 tasks; fails at 400, 450, and 475 tasks;
-and passes again at the 500-task positive control. At 400 tasks, tau-b is
-approximately 0.878 and the cluster-bootstrap 2.5th percentile is
-approximately 0.471. Therefore, the former 400-task robust entropy decision
-was invalid. The corrected exact-common-budget decision is 500 tasks.
+## Remaining validation limits
 
-## Provenance
-
-| Item | Value |
-|---|---|
-| SWE-bench experiments commit | `1faa91cade0562ba62b66c1c99e71f7b72d96f13` |
-| SWE-bench website commit | `f42505b21a0eb31a9cc1204caafcbe0da6c1a259` |
-| Classic outcome-matrix SHA-256 | `e477915c5dd68a132995f692da67b0105743f34bd868f636d3b5fec43c1b11e0` |
-| Bash-only outcome-matrix SHA-256 | `0f5fda63360d75604589e4916057ffc294dd3b4ef6d9cca9552adf651806357d` |
-| Canonical tasks | 500 |
-| Usable classic submissions | 133 |
-| Usable Bash-only submissions | 38 |
-
-## Remaining limitations
-
-- The public leaderboard is an observational submission ecosystem, not a
-  randomized sample of systems.
-- Related systems are only approximately controlled through declared family
-  or provider clusters.
-- Public matrices expose one outcome per task and cannot estimate run-to-run
-  agent variance.
-- Submission dates do not identify exact harness versions.
-- The two execution formats are intentionally not pooled.
-- The study evaluates ranking preservation within SWE-bench Verified and does
-  not establish task correctness, contamination freedom, proportional runtime
-  savings, or generalization to other benchmarks.
+- The 300-replicate simultaneous curve analysis has finite Monte Carlo error.
+- Public leaderboard submissions are self-selected and cluster labels are
+  metadata-derived approximations.
+- The replication bundle has no public immutable release or DOI yet.
+- Author metadata, funding, competing-interest, and contribution declarations
+  require author confirmation before journal submission.

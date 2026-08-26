@@ -293,6 +293,24 @@ def linear_calibration(xs: list[float], ys: list[float]) -> tuple[float, float]:
     return mean_y - slope * mean_x, slope
 
 
+def inclusive_top_k_set(rows: list[dict], scores: list[float], top_k: int) -> set[str]:
+    """Return the nominal top-k set while including every boundary tie.
+
+    The previous implementation broke score ties with the system name.  That
+    made the overlap depend on an arbitrary label.  This definition instead
+    includes every system whose score is at least the kth score.
+    """
+    if not rows or top_k <= 0:
+        return set()
+    boundary_index = min(top_k, len(scores)) - 1
+    boundary_score = sorted(scores, reverse=True)[boundary_index]
+    return {
+        row["name"]
+        for row, score in zip(rows, scores)
+        if score >= boundary_score
+    }
+
+
 def evaluate_subset(
     task_ids: list[str], training_rows: list[dict], test_rows: list[dict], subset: list[int], top_k: int
 ) -> dict:
@@ -304,14 +322,9 @@ def evaluate_subset(
     intercept, slope = linear_calibration(train_subset, train_full)
     calibrated = [intercept + slope * value for value in test_subset]
 
-    full_top = {
-        row["name"]
-        for row, _ in sorted(zip(test_rows, test_full), key=lambda pair: (-pair[1], pair[0]["name"]))[:top_k]
-    }
-    subset_top = {
-        row["name"]
-        for row, _ in sorted(zip(test_rows, test_subset), key=lambda pair: (-pair[1], pair[0]["name"]))[:top_k]
-    }
+    full_top = inclusive_top_k_set(test_rows, test_full, top_k)
+    subset_top = inclusive_top_k_set(test_rows, test_subset, top_k)
+    top_union = full_top | subset_top
 
     correct = considered = 0
     for i in range(len(test_rows)):
@@ -326,7 +339,11 @@ def evaluate_subset(
     repositories = {task_ids[index].split("__", 1)[0] for index in subset}
     return {
         "tau_b": kendall_tau_b(test_full, test_subset),
-        "top_k_overlap": len(full_top & subset_top) / max(1, top_k),
+        # Tie-aware Jaccard overlap.  The legacy column name is retained for
+        # compatibility; the manuscript and data dictionary define it fully.
+        "top_k_overlap": len(full_top & subset_top) / len(top_union) if top_union else 1.0,
+        "full_top_k_set_size": len(full_top),
+        "subset_top_k_set_size": len(subset_top),
         "pairwise_direction_agreement": correct / considered if considered else 0.0,
         "calibrated_score_mae": statistics.fmean(abs(a - b) for a, b in zip(test_full, calibrated)),
         "repository_coverage": len(repositories),
@@ -337,7 +354,10 @@ def evaluate_subset(
 
 def summarize_repetitions(records: list[dict]) -> dict:
     output = {}
-    for key in ("tau_b", "top_k_overlap", "pairwise_direction_agreement", "calibrated_score_mae", "repository_coverage"):
+    for key in (
+        "tau_b", "top_k_overlap", "full_top_k_set_size", "subset_top_k_set_size",
+        "pairwise_direction_agreement", "calibrated_score_mae", "repository_coverage",
+    ):
         values = [record[key] for record in records]
         output[key] = statistics.fmean(values)
         output[f"{key}_q025"] = quantile(values, 0.025)

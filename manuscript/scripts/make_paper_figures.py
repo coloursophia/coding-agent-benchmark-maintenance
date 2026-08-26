@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ARTIFACT = ROOT / "artifacts" / "github-run-32747736415"
+ARTIFACT = ROOT / "formal-output-v2-local"
 OUTPUT = ROOT / "manuscript" / "figures"
 
 INK = "#20262E"
@@ -22,6 +22,7 @@ ORANGE_LIGHT = "#EBC5AC"
 OLIVE = "#6F7D3E"
 OLIVE_LIGHT = "#C9D0AF"
 GOLD = "#C69A2B"
+GRAY = "#5F6B76"
 
 
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -73,6 +74,9 @@ def marker(draw: ImageDraw.ImageDraw, x: float, y: float, shape: str, color: str
         draw.ellipse((x-r, y-r, x+r, y+r), fill=WHITE, outline=color, width=3)
     elif shape == "square":
         draw.rectangle((x-r, y-r, x+r, y+r), fill=WHITE, outline=color, width=3)
+    elif shape == "diamond":
+        draw.polygon([(x, y-r-1), (x+r+1, y), (x, y+r+1), (x-r-1, y)], fill=WHITE, outline=color)
+        draw.line([(x, y-r-1), (x+r+1, y), (x, y+r+1), (x-r-1, y), (x, y-r-1)], fill=color, width=3)
     else:
         draw.polygon([(x, y-r-2), (x-r-1, y+r), (x+r+1, y+r)], fill=WHITE, outline=color)
         draw.line([(x, y-r-2), (x-r-1, y+r), (x+r+1, y+r), (x, y-r-2)], fill=color, width=3)
@@ -85,14 +89,15 @@ def centered(draw, xy, text, fnt, fill=INK):
     draw.text((xy[0] - w/2, xy[1] - h/2), text, font=fnt, fill=fill)
 
 
+def save_high_resolution(img: Image.Image, path: Path, scale: int = 2):
+    enlarged = img.resize((img.width * scale, img.height * scale), Image.Resampling.LANCZOS)
+    enlarged.save(path, dpi=(600, 600), optimize=True)
+
+
 def figure1_temporal_shift():
     rows = read_csv("longitudinal.csv")
     img = Image.new("RGB", (2200, 980), WHITE)
     d = ImageDraw.Draw(img)
-    d.text((95, 55), "Temporal changes in task outcomes", font=F_TITLE, fill=INK)
-    d.text((95, 118), "Later period minus earlier period; points show mean change and lines show repository-bootstrap 95% intervals",
-           font=F_SUBTITLE, fill=MUTED)
-
     metrics = [
         ("Mean task solve-rate change", "solve_rate_change", "solve_rate_change_q025", "solve_rate_change_q975", BLUE, "circle"),
         ("Mean task entropy change", "entropy_change", "entropy_change_q025", "entropy_change_q975", ORANGE, "square"),
@@ -107,7 +112,7 @@ def figure1_temporal_shift():
         return left + (float(v)-x_min)/(x_max-x_min)*(right-left)
 
     for i, panel in enumerate(panels):
-        top = 230 + i * 300
+        top = 100 + i * 330
         d.text((95, top-15), panel_labels[panel], font=F_PANEL, fill=INK)
         for tick in [-0.4, -0.2, 0.0, 0.2, 0.4]:
             x = xp(tick)
@@ -126,45 +131,39 @@ def figure1_temporal_shift():
             tx = min(xp(hi)+18, 1750)
             d.text((tx, y-16), label_text, font=F_LABEL, fill=color)
 
-    d.text((95, 905), "Source: corrected formal run 32747736415. Panels are analyzed separately; intervals are descriptive, not causal.",
-           font=F_NOTE, fill=MUTED)
     path = OUTPUT / "figure1_temporal_shift.png"
-    img.save(path, dpi=(300, 300))
+    save_high_resolution(img.crop((60, 50, 2150, 780)), path)
     return path
 
 
 def figure2_ranking_fidelity():
     all_rows = read_csv("formal_metrics.csv")
-    rows = [r for r in all_rows if r["method"] in {
-        "repo_stratified_random", "entropy", "temporal_coreset"}]
+    rows = all_rows
     budgets = sorted({int(r["budget"]) for r in rows})
     panels = ["open-submission", "standardized-bash"]
     scopes = ["all_systems", "cluster_latest"]
     panel_labels = {"open-submission": "Open-submission", "standardized-bash": "Standardized Bash-only"}
     scope_labels = {"all_systems": "All systems", "cluster_latest": "Latest system per related cluster"}
     styles = {
+        "random": ("Uniform random", GRAY, GRID, "diamond", (3, 7)),
         "repo_stratified_random": ("Repository-stratified random", BLUE, BLUE_LIGHT, "circle", None),
         "entropy": ("Training-period entropy", ORANGE, ORANGE_LIGHT, "square", (16, 9)),
         "temporal_coreset": ("Temporal core set", OLIVE, OLIVE_LIGHT, "triangle", (5, 7)),
     }
     img = Image.new("RGB", (2700, 1850), WHITE)
     d = ImageDraw.Draw(img)
-    d.text((90, 48), "Held-out ranking fidelity by task budget", font=F_TITLE, fill=INK)
-    d.text((90, 110), "Kendall tau-b relative to the full 500-task ranking; vertical intervals are task-sampling or cluster-bootstrap 95% intervals",
-           font=F_SUBTITLE, fill=MUTED)
-
-    legend_y = 178
+    legend_y = 90
     lx = 120
     for method in styles:
         name, color, _, shape, dash = styles[method]
         line(d, [(lx, legend_y), (lx+105, legend_y)], color, 5, dash)
         marker(d, lx+52, legend_y, shape, color, 8)
         d.text((lx+122, legend_y-15), name, font=F_AXIS, fill=INK)
-        lx += 760
+        lx += 625
 
     plot_w, plot_h = 1130, 560
     lefts = [145, 1450]
-    tops = [300, 1030]
+    tops = [220, 950]
     y_min, y_max = -0.2, 1.0
 
     for pi, panel in enumerate(panels):
@@ -178,7 +177,6 @@ def figure2_ranking_fidelity():
                 d.text((left-70, y-11), f"{tick:.1f}", font=F_SMALL, fill=MUTED)
             y_thr = bottom - (0.9-y_min)/(y_max-y_min)*plot_h
             line(d, [(left, y_thr), (right, y_thr)], MUTED, 3, (11, 8))
-            d.text((right-225, y_thr-32), "mean threshold 0.90", font=F_SMALL, fill=MUTED)
             d.line((left, top, left, bottom), fill=INK, width=2)
             d.line((left, bottom, right, bottom), fill=INK, width=2)
 
@@ -214,19 +212,36 @@ def figure2_ranking_fidelity():
                     marker(d, x, y, shape, color, 6)
 
             centered(d, (left+plot_w/2, bottom+78), "Task budget", F_AXIS, INK)
-            d.text((left-105, top-2), "tau-b", font=F_AXIS, fill=INK)
+            d.text((left-98, top-2), "τb", font=F_AXIS, fill=INK)
 
-    d.text((90, 1775), "Source: corrected formal run 32747736415. The y-axis extends below zero to show negative lower intervals while retaining the full 0-1 fidelity range.",
-           font=F_NOTE, fill=MUTED)
-    path = OUTPUT / "figure2_ranking_fidelity.png"
-    img.save(path, dpi=(300, 300))
-    return path
+    def stacked_panel(filename: str, source_top: int):
+        panel_img = Image.new("RGB", (1350, 1600), WHITE)
+        panel_draw = ImageDraw.Draw(panel_img)
+        legend_positions = [(25, 32), (690, 32), (25, 82), (690, 82)]
+        for (method, (x, y)) in zip(styles, legend_positions):
+            name, color, _, shape, dash = styles[method]
+            line(panel_draw, [(x, y), (x + 85, y)], color, 4, dash)
+            marker(panel_draw, x + 42, y, shape, color, 7)
+            panel_draw.text((x + 102, y - 13), name, font=F_SMALL, fill=INK)
+        first = img.crop((0, source_top, 1350, source_top + 740))
+        second = img.crop((1325, source_top, 2675, source_top + 740))
+        panel_img.paste(first, (0, 120))
+        panel_img.paste(second, (0, 860))
+        path = OUTPUT / filename
+        save_high_resolution(panel_img, path, scale=3)
+        return path
+
+    return (
+        stacked_panel("figure2a_open_ranking_fidelity.png", 150),
+        stacked_panel("figure2b_standardized_ranking_fidelity.png", 880),
+    )
 
 
 def figure3_common_budget_matrix():
     rows = read_csv("formal_metrics.csv")
-    methods = ["repo_stratified_random", "entropy", "temporal_coreset"]
+    methods = ["random", "repo_stratified_random", "entropy", "temporal_coreset"]
     method_labels = {
+        "random": "Uniform random",
         "repo_stratified_random": "Repository-stratified random",
         "entropy": "Training-period entropy",
         "temporal_coreset": "Temporal core set",
@@ -237,19 +252,16 @@ def figure3_common_budget_matrix():
     for method in methods:
         for budget in budgets:
             cell_rows = [r for r in rows if r["method"] == method and int(r["budget"]) == budget]
-            lower = 0.85 if method == "repo_stratified_random" else 0.80
+            lower = 0.85 if method in {"random", "repo_stratified_random"} else 0.80
             count = sum(float(r["tau_b"]) >= 0.90 and float(r["tau_b_q025"]) >= lower for r in cell_rows)
             counts[(method, budget)] = count
         first_all[method] = next(b for b in budgets if counts[(method, b)] == 4)
 
     fills = {0: "#F2F4F6", 1: "#DCE8F1", 2: "#B9D0E2", 3: "#78A7CA", 4: BLUE}
-    img = Image.new("RGB", (2500, 980), WHITE)
+    img = Image.new("RGB", (2500, 760), WHITE)
     d = ImageDraw.Draw(img)
-    d.text((90, 55), "Primary-policy pass counts at each exact budget", font=F_TITLE, fill=INK)
-    d.text((90, 118), "Each cell reports how many of the four panel-scope combinations pass the method-specific reliability rule",
-           font=F_SUBTITLE, fill=MUTED)
-    left, top = 500, 265
-    cw, ch = 142, 150
+    left, top = 500, 75
+    cw, ch = 142, 145
     for j, budget in enumerate(budgets):
         centered(d, (left+j*cw+cw/2, top-42), str(budget), F_AXIS, INK)
     for i, method in enumerate(methods):
@@ -262,18 +274,15 @@ def figure3_common_budget_matrix():
             centered(d, (x+(cw-5)/2, y+(ch-8)/2-8), f"{count}/4", F_PANEL, WHITE if count >= 3 else INK)
             if budget == first_all[method]:
                 d.rectangle((x+4, y+4, x+cw-9, y+ch-12), outline=GOLD, width=7)
-    d.text((90, 780), "Gold outline: first exact common budget with 4/4 passing cells.", font=F_LABEL, fill=GOLD)
-    d.text((90, 835), "Primary thresholds: mean tau-b >= 0.90; lower interval >= 0.85 for repository-stratified random and >= 0.80 for deterministic selectors.",
-           font=F_NOTE, fill=MUTED)
-    d.text((90, 885), "Source: corrected formal run 32747736415. Counts are recomputed directly from formal_metrics.csv.", font=F_NOTE, fill=MUTED)
     path = OUTPUT / "figure3_common_budget_matrix.png"
-    img.save(path, dpi=(300, 300))
+    save_high_resolution(img.crop((60, 25, 2420, 700)), path)
     return path
 
 
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    for path in (figure1_temporal_shift(), figure2_ranking_fidelity(), figure3_common_budget_matrix()):
+    figure2_paths = figure2_ranking_fidelity()
+    for path in (figure1_temporal_shift(), *figure2_paths, figure3_common_budget_matrix()):
         print(path)
 
 

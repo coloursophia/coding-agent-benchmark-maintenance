@@ -24,24 +24,27 @@
   entropy is non-monotone, so larger subsets do not necessarily pass.
 - **Family/variant:** Trend; four small-multiple line-and-interval charts
   (panel by scope).
-- **Data:** 156 observations for the three paper-facing methods across 13
+- **Data:** 208 observations for all four methods across 13
   budgets, with task-sampling or cluster-bootstrap 95% intervals.
 - **Surface:** Static PNG embedded in DOCX.
 - **Scale:** Full 0-1 tau-b range plus a short extension to -0.2 so negative
   lower intervals remain visible; primary mean threshold at 0.90 and lower-
   bound thresholds are stated in the caption rather than conflated.
-- **Palette:** Relaxed three-category research palette: blue, orange, olive;
+- **Palette:** Gray plus a three-category research palette: blue, orange, olive;
   distinct line styles and markers support grayscale reading.
-- **Output:** `manuscript/figures/figure2_ranking_fidelity.png`.
+- **Output:** `manuscript/figures/figure2a_open_ranking_fidelity.png` and
+  `manuscript/figures/figure2b_standardized_ranking_fidelity.png`, treated as
+  Fig. 2a–b in the manuscript.
 
 ## Figure 3: Exact common-budget decision
 
 - **Question:** At each budget, how many of the four panel-scope cells pass the
   primary reliability policy for each method?
-- **Takeaway:** Random and entropy first reach 4/4 only at 500 tasks; the
-  temporal core set reaches 4/4 at 475 tasks.
+- **Takeaway:** Uniform random, repository-stratified random, and entropy first
+  reach 4/4 only at 500 tasks; the temporal core procedure reaches 4/4 at 475
+  under the predeclared pointwise policy.
 - **Family/variant:** Matrix; annotated heatmap of pass counts.
-- **Data:** Three methods x 13 budgets, derived from `formal_metrics.csv` using
+- **Data:** Four methods x 13 budgets, derived from `formal_metrics.csv` using
   the primary method-specific lower-bound rules.
 - **Surface:** Static PNG embedded in DOCX.
 - **Scale:** Cell labels show exact pass counts from 0 to 4; no inference from

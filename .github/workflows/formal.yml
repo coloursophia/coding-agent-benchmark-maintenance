@@ -41,6 +41,19 @@ jobs:
           test -s formal-output/formal_results.json
           test -s formal-output/data_quality.json
           test -s formal-output/source_manifest.json
+          test -s formal-output/harmonized_metrics.csv
+          test -s formal-output/harmonized_decisions.csv
+          test -s formal-output/budget_stability.csv
+          test -s formal-output/selection_overlap.csv
+          test -s formal-output/fixed_selection_sensitivity.csv
+          test -s formal-output/fixed_selection_decisions.csv
+          test -s formal-output/cluster_mapping.csv
+          test -s formal-output/bootstrap_stability.csv
+          test -s formal-output/cluster_sensitivity.csv
+          test -s formal-output/cluster_sensitivity_decisions.csv
+
+      - name: Verify manuscript result-table consistency
+        run: python manuscript/scripts/sync_result_tables.py --artifact formal-output --check
 
       - name: Upload formal research artifact
         uses: actions/upload-artifact@v6

@@ -15,7 +15,7 @@ from docx.shared import Inches, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_manuscript.md"
-OUTPUT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_draft_v1.0.docx"
+OUTPUT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_draft_v2.0.docx"
 
 BLUE = "2E74B5"
 DARK_BLUE = "1F4D78"
@@ -255,7 +255,7 @@ def configure_sections(doc):
     p.paragraph_format.space_after = Pt(0)
     r = p.add_run("Limits of Task-Set Reduction in SWE-bench Verified")
     set_font(r, size=8.5, color=MUTED, bold=True)
-    r = p.add_run("  |  Anonymous manuscript")
+    r = p.add_run("  |  Manuscript")
     set_font(r, size=8.5, color=MUTED)
 
     footer = section.footer
@@ -269,7 +269,7 @@ def configure_sections(doc):
     first_footer = section.first_page_footer
     p = first_footer.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run("Anonymous manuscript for review")
+    r = p.add_run("Manuscript for internal review")
     set_font(r, size=8.5, color=MUTED)
 
 
@@ -327,19 +327,10 @@ def add_cover(doc):
     set_font(r, size=11, color=INK, bold=True)
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_after = Pt(80)
+    p.paragraph_format.space_after = Pt(34)
     r = p.add_run("Target journal: Empirical Software Engineering")
     set_font(r, size=10.5, color=MUTED, italic=True)
 
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_after = Pt(4)
-    r = p.add_run("Corrected reproducible draft | Version 1.0 | 26 August 2026")
-    set_font(r, size=10, color=MUTED)
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run("Formal experiment: GitHub Actions run 32747736415")
-    set_font(r, size=9.5, color=MUTED)
     doc.add_page_break()
 
 
@@ -451,6 +442,9 @@ def build():
         if not stripped:
             i += 1
             continue
+        if stripped.startswith("<!--") and stripped.endswith("-->"):
+            i += 1
+            continue
         if stripped.startswith("## "):
             heading = stripped[3:]
             if heading == "References":
@@ -496,10 +490,18 @@ def build():
             continue
 
         text, i = collect_paragraph(lines, i)
-        style = "References" if in_references and text.startswith("[") else "Normal"
-        if text.startswith("**Table ") or text.startswith("**Figure "):
+        style = "References" if in_references else "Normal"
+        if text.startswith("**Table ") or text.startswith("**Fig. "):
             style = "Caption"
         p = doc.add_paragraph(style=style)
+        # Keep the two longer decision tables intact. Without a page break,
+        # LibreOffice places their captions at the foot of a page and splits
+        # the body across pages, which makes the decision rows hard to audit.
+        if (
+            text.startswith("**Table 4.")
+            or text.startswith("**Table 8.")
+        ):
+            p.paragraph_format.page_break_before = True
         if text.startswith("**Keywords:"):
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         add_inline(p, text)
@@ -509,7 +511,7 @@ def build():
     props.subject = "Temporal ranking reliability of reduced coding-agent benchmark task sets"
     props.author = "Anonymous"
     props.keywords = "SWE-bench Verified; coding agents; leaderboard reliability; temporal validation"
-    props.comments = "Corrected formal run 32747736415; draft version 1.0"
+    props.comments = "Temporal ranking-reliability study"
     doc.save(OUTPUT)
     print(OUTPUT)
 

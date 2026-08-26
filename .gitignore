@@ -7,5 +7,6 @@ pilot-output/
 formal-output/
 artifacts/
 formal-output-recheck/
+formal-output-*/
 manuscript/qa/render*/
 manuscript/qa/a11y_v1.json

@@ -1,4 +1,4 @@
-# V3 experiment validation
+# V3 experiment validation and v3.1 manuscript linkage
 
 **Assessment:** The corrected v3 formal run is internally consistent and was
 independently reproduced by the successful GitHub Actions execution. Public
@@ -11,6 +11,10 @@ archival availability remains to be completed.
 - GitHub Actions run: `32970788181` (successful; 23 min 38 s).
 - Experiment commit: `4bcbd4a2cd259f9722e1fa3eb83fa1e03b79df75`.
 - Downloaded artifact: `artifacts/github-run-32970788181/unpacked`.
+- Manuscript: `manuscript/Limits_of_Task_Set_Reduction_EMSE_draft_v3.1.docx`.
+- Submission supplement: `manuscript/Online_Resource_1_secondary_metrics.csv`
+  (byte-identical to the official artifact's
+  `secondary_metrics_online_resource.csv`).
 - Artifact ZIP SHA-256:
   `c66da9edd849c36335fb15a687331d2058cb8c900c29264d38b2d06b2070c334`.
 - Experiments source commit: recorded in `source_manifest.json`.

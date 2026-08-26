@@ -52,9 +52,11 @@ and paper-facing claim limits are documented in
 - Secondary metrics: tie-aware top-k Jaccard, pairwise direction agreement,
   calibrated score MAE, repository coverage, and bootstrap/random-baseline
   intervals.
-- Reviewer-motivated robustness: 10,000 pooled curve-bootstrap replicates from
+- Post-protocol robustness added during review: 10,000 pooled curve-bootstrap replicates from
   five seeds, nested random budget paths, raw cell-wise and standardized max-t
   bands, and a joint four-cell decision-family band.
+- Submission supplement: `manuscript/Online_Resource_1_secondary_metrics.csv`
+  contains the complete 208-row secondary-metric table.
 
 The temporal split is deliberate: a random submission split would leak later
 system behavior into task selection and would not test whether a core set

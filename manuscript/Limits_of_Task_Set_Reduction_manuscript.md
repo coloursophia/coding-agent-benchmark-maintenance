@@ -8,27 +8,28 @@ Target journal: *Empirical Software Engineering*
 
 Coding-agent leaderboards make smaller task sets attractive, but a subset is
 useful only if it preserves the ranking of later systems. We test this
-time-forward requirement on the 500 SWE-bench Verified tasks in two separate
-panels: open submissions from 2024 to 2025 (51 earlier and 78 later systems)
+time-forward requirement in two 500-task panels: open submissions
+from 2024 to 2025 (51 earlier and 78 later systems)
 and standardized Bash-only submissions from 2025 to 2026 (27 and 11 systems).
 Earlier outcomes select tasks at 13 budgets using uniform random,
 repository-stratified random, entropy, and a frozen temporal core-set
 procedure. We measure held-out fidelity with Kendall’s τ_b, a tie-aware top-k
 Jaccard diagnostic, and all-system and latest-per-related-cluster scopes. A
 harmonized curve bootstrap resamples held-out system clusters for every method
-and additionally redraws tasks for stochastic procedures. Later cohorts had
+and redraws tasks for stochastic procedures. Later cohorts had
 higher mean solve rates; entropy declined clearly only in the standardized
-panel. Under the protocol-defined pointwise policy, the common reliable
-procedure budgets were 500, 500, 500, and 475 tasks, respectively. A
-reviewer-motivated, post hoc joint max-t analysis returned the same budgets;
-an unstandardized raw-deviation band instead forced all four to 500. Entropy
+panel. Under the protocol-defined pointwise policy, the common
+procedure budgets were 500, 500, 500, and 475 tasks, respectively. A post hoc
+joint max-t sensitivity retained these budgets only with standardized bands
+and scope-specific retraining; fixed selection required all 500 tasks. An
+unstandardized raw-deviation band forced all four to 500. Entropy
 was also non-monotone,
 passing at 150–300 tasks but failing at 400–475 in one scope. Task identities
 varied across scope-trained selectors, so a common budget does not denote one
 fixed public subset. Thus, no procedure supported more than a 5% reduction
 under the primary policy, and even that saving was not a fixed deployable set.
 Maintainers should validate
-selection procedures on later systems, model related submissions, and report
+selection procedures on later systems, model-related submissions, and report
 curve-wise selection uncertainty rather than assume fidelity increases with
 budget.
 
@@ -89,8 +90,8 @@ We make four contributions.
    threshold sensitivity, and a mandatory 500-task positive control.
 4. We report a limitation finding and disclose its analysis history: a
    475-task procedure-level result under the protocol-defined pointwise rule
-   is tested with a reviewer-motivated, post hoc simultaneous analysis rather
-   than described as a confirmatory result.
+   is tested with a post-protocol robustness analysis added during review
+   rather than described as a confirmatory result.
 
 The practical implication is procedural rather than algorithmic. A task subset
 should be versioned and revalidated as a benchmark population changes. The
@@ -109,10 +110,11 @@ developers reviewed 1,699 tasks; 500 were selected as a human-validated subset
 (OpenAI 2024). The public ecosystem subsequently became a central comparison point for
 coding agents.
 
-That ecosystem is heterogeneous. Martinez and Franch (2026) characterize the
-participants, products, model choices, and openness of SWE-bench leaderboard
-entries, showing that leaderboard rows are not interchangeable independent
-samples. Our panel design responds by separating the open-submission and
+That ecosystem is heterogeneous. Martinez and Franch (2026) document
+substantial heterogeneity in the participants, products, model choices, and
+openness of SWE-bench leaderboard entries. We therefore do not treat
+leaderboard rows as interchangeable independent systems. Our panel design
+responds by separating the open-submission and
 standardized Bash-only formats and by adding related-system sensitivity rather
 than pooling every row into one analysis.
 
@@ -356,8 +358,8 @@ dependence during resampling. RQ1 changes in solve rate and entropy use 2,000
 repository-cluster bootstrap repetitions over tasks, where the repository is
 the resampling cluster.
 
-Because those intervals are not directly comparable, a reviewer-motivated,
-post hoc sensitivity uses a harmonized curve bootstrap. Five independent
+Because those intervals are not directly comparable, a post-protocol
+sensitivity added during review uses a harmonized curve bootstrap. Five independent
 seeds contribute 2,000 replicates each (10,000 pooled replicates). Within a
 panel and replicate, held-out system clusters are drawn once and reused for
 both scopes, preserving their dependence; the two panels are sampled
@@ -380,8 +382,9 @@ exact 500-task positive control, remain at their point estimate. At 500 tasks,
 the reduced and full score vectors are identical, so fidelity is set to 1 by
 construction even when a degenerate cluster resample contains no comparable
 system pair. We report the
-budget driving each correction, per-seed ranges, and Wilson intervals for
-budget-selection probabilities. An additional 2,000-replicate sensitivity
+budget driving each correction, per-seed ranges, and 95% Wilson Monte Carlo
+intervals conditional on the empirical resampling scheme for budget-selection
+probabilities. An additional 2,000-replicate sensitivity
 redraws random task sets independently at each budget to compare the v2
 coupling with the nested-prefix estimand.
 The implementation follows standard bootstrap guidance on empirical
@@ -446,8 +449,8 @@ pass/fail paths; the common-budget rule was corrected to test each exact budget
 across all required cells. The harmonized bootstrap, raw-deviation band,
 standardized max-t bands, and coupling sensitivity were added after review and
 are explicitly post hoc robustness analyses. This chronology separates the
-protocol-defined thresholds from later corrections and reviewer-motivated
-analyses.
+protocol-defined thresholds from later corrections and post-protocol analyses
+added during review.
 
 ## 5 Results
 
@@ -509,22 +512,14 @@ Conversely, methods that appear adequate at 150 tasks in the open panel require
 budgets are consequently 450 for repository-stratified random, 400 for
 entropy, and 475 for the temporal core set.
 
-Dependence sensitivity changes the curves further. In the standardized panel,
-repository-stratified random sampling passes at 450 tasks with all systems
-(mean τ_b 0.956; 2.5th percentile 0.897), but fails at the same budget after
-retaining one system per provider cluster (0.914; 0.781). It reaches the
-positive control at 500 tasks. The apparent 10% random-sampling reduction is
-therefore attributable to a scope that gives repeated related systems more
-weight.
-
-**Fig. 2a Held-out Kendall’s τ_b by task budget and scope in the open-submission panel.**
+**Fig. 2 (a) Held-out Kendall’s τ_b by task budget and scope in the open-submission panel**
 The y-axis includes the full 0–1 fidelity range and extends to -0.2 so negative
 lower intervals remain visible. The dashed horizontal line is the primary mean
 threshold of 0.90; passing also requires the method-specific lower bound.
 
 ![Open-submission held-out ranking fidelity by task budget](figures/figure2a_open_ranking_fidelity.png)
 
-**Fig. 2b Held-out Kendall’s τ_b by task budget and scope in the standardized Bash-only panel.**
+**Fig. 2 (b) Held-out Kendall’s τ_b by task budget and scope in the standardized Bash-only panel**
 
 ![Standardized Bash-only held-out ranking fidelity by task budget](figures/figure2b_standardized_ranking_fidelity.png)
 
@@ -538,6 +533,14 @@ threshold of 0.90; passing also requires the method-specific lower bound.
 | Standardized, all systems | 450 | 450 | 100 | 475 |
 | Standardized, cluster latest | 500 | 500 | 150 | 475 |
 <!-- END GENERATED TABLE 4 -->
+
+Dependence sensitivity changes the curves further. In the standardized panel,
+repository-stratified random sampling passes at 450 tasks with all systems
+(mean τ_b 0.956; 2.5th percentile 0.897), but fails at the same budget after
+retaining one system per provider cluster (0.914; 0.781). It reaches the
+positive control at 500 tasks. The apparent 10% random-sampling reduction is
+therefore attributable to a scope that gives repeated related systems more
+weight.
 
 These cell-specific minima are descriptive. They cannot be aggregated by
 taking their maximum because a method can pass at a smaller budget and fail at
@@ -558,7 +561,7 @@ procedure-level budgets: the selected task identities need not match across
 cells.
 
 **Fig. 3 Number of panel-scope cells passing the primary policy at each exact
-budget.** Gold outlines identify the first 4/4 budget.
+budget. Gold outlines identify the first 4/4 budget**
 
 ![Exact common-budget matrix](figures/figure3_common_budget_matrix.png)
 
@@ -641,7 +644,8 @@ unstandardized deviations elsewhere on the curve. The standardized cell-wise
 and joint bands are 0.907 and 0.890, both above the common 0.80 threshold. In
 the standardized cluster-latest cell, the corresponding raw and joint values
 are 0.066 and 0.951. The raw correction is therefore a deliberately severe
-stress test, not the uniquely correct conservative answer.
+stress test and should not be interpreted as the sole defensible conservative
+specification.
 
 **Table 8. Temporal-core lower bounds at 475 tasks under the four uncertainty definitions.**
 
@@ -659,11 +663,13 @@ point (24% of replicates), whereas the raw standardized cluster-latest
 correction is most often driven by 25 tasks (25%). The joint standardized
 maximum is dispersed: its most frequent driver is the standardized
 cluster-latest 50-task point, but only in 7% of replicates. This diagnostic
-supports standardization when budgets have very different variances.
+shows why standardization materially changes this diagnostic when budgets have
+very different variances.
 
 The replicate-level minimum remains unstable before the positive control. For
 temporal core, 52% of pooled replicates first pass all four cells at 475 tasks
-(95% Wilson interval 51%–53%), and 56% select 475 under the rule requiring all
+(95% Wilson Monte Carlo interval conditional on the empirical resampling
+scheme: 51%–53%), and 56% select 475 under the rule requiring all
 larger candidate budgets to pass (55%–57%). Entropy's persistent-rule
 probabilities are 24% at 300, 29% at 400, and 45% at 500. Both random methods
 still require 500 under nested-prefix and independent-by-budget task draws.
@@ -723,11 +729,13 @@ the 475-task budget.**
 | Temporal core set | 500 | No |
 <!-- END GENERATED TABLE 11 -->
 
-Online Resource 1 reports tau-b, tie-aware top-k Jaccard, full and reduced
-top-set sizes, pairwise direction agreement, calibrated score MAE, repository
-coverage, and random-baseline percentile for all 208
-panel-scope-method-budget cells. This makes cases such as perfect top-k
-retention despite global-rank failure directly auditable.
+Online Resource 1 (`Online_Resource_1_secondary_metrics.csv`; CSV) contains one
+row for each of the 208 panel-scope-method-budget cells. Its columns identify
+the panel, scope, procedure, and budget and report tau-b, tie-aware top-k
+Jaccard, full and reduced top-set sizes, pairwise direction agreement,
+calibrated score MAE, repository coverage, and random-baseline percentile.
+This makes cases such as perfect top-k retention despite global-rank failure
+directly auditable.
 
 Alternative cluster labels also change first-passing budgets. In the
 standardized panel, fixed all-system selections evaluated on model-family
@@ -756,8 +764,9 @@ procedure-level reduction, not one deployable 475-task set.
 Entropy remains a useful diagnostic baseline. It is simple, deterministic,
 and can perform well under a lenient policy. Yet it is not a robust primary-policy
 solution, and the present study does not claim algorithmic novelty. The
-temporal-core heuristic likewise does not justify a method paper: its apparent
-5% saving survives standardized joint curve control but disappears when one
+temporal-core heuristic likewise does not establish a generally superior
+selection method: its apparent 5% saving survives standardized joint curve
+control but disappears when one
 all-system-trained set is fixed across scopes.
 
 Negative evidence is operationally valuable. A benchmark maintainer who
@@ -787,7 +796,7 @@ and a simultaneous band can control the lower bound across the complete scan.
 Band construction matters: the raw unstandardized correction changes 475 to
 500, whereas the joint standardized max-t band retains 475. A robustness
 analysis should therefore report its family, scaling, and driver budgets rather
-than label one curve-wise result as the uniquely conservative truth.
+than treat one curve-wise construction as definitive.
 
 ### 6.3 Implications for benchmark maintenance
 
@@ -874,6 +883,10 @@ while the harmonized standardized all-system temporal-core pointwise lower
 bound at 475 varies only from 0.946 to 0.947. Its joint max-t lower band varies
 from 0.843 to 0.911. These are empirical sensitivity bounds, not exact
 confidence limits.
+
+The Wilson intervals quantify only Monte Carlo error conditional on the
+empirical resampling scheme. They do not include uncertainty from panel
+selection, cluster definition, or a broader model population.
 
 The thresholds are normative reliability policies rather than estimates of a
 universal acceptable τ_b. We expose lenient and strict policies to show how

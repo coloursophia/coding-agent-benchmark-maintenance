@@ -515,7 +515,9 @@ def build():
     props.title = "Limits of Task-Set Reduction in SWE-bench Verified: A Temporal Study of Leaderboard Ranking Reliability"
     props.subject = "Temporal ranking reliability of reduced coding-agent benchmark task sets"
     props.author = "Anonymous"
-    props.keywords = "coding agents; benchmark reduction; leaderboard reliability; SWE-bench Verified; temporal validation; ranking uncertainty"
+    # Non-breaking spaces keep each multiword keyword intact when LibreOffice
+    # exports the DOCX keyword list to PDF metadata.
+    props.keywords = "coding\u00a0agents; benchmark\u00a0reduction; leaderboard\u00a0reliability; SWE-bench\u00a0Verified; temporal\u00a0validation; ranking\u00a0uncertainty"
     props.comments = "Temporal ranking-reliability study"
     doc.save(OUTPUT)
     print(OUTPUT)

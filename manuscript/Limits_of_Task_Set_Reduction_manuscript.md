@@ -271,8 +271,9 @@ The top-k diagnostic uses k=10.
 **Standardized Bash-only panel.** Task selection uses 27 systems from 2025;
 evaluation uses 11 systems from 2026. Model-provider metadata defines 10 and 7
 clusters. The result files share the standardized mini-SWE-agent Bash-only
-format and explicitly report all 500 task outcomes. This panel is the time-
-external replication. The top-k diagnostic uses k=5.
+format and explicitly report all 500 task outcomes. This heterogeneous panel
+provides time-external validation rather than a same-environment replication.
+The top-k diagnostic uses k=5.
 
 The primary cluster labels are normalized official agent labels for the open
 panel and model providers for the standardized panel. The replication package
@@ -388,13 +389,14 @@ intervals, dependent data, and Monte Carlo calculation (Efron and Tibshirani
 1985; Davison and Hinkley 1997), but the four-cell max-t construction is a
 custom application whose coverage is assessed empirically rather than assumed.
 
-Formally, let τ̂_cmb be the observed tau-b for cell c, method m, and budget b;
-let τ*rcmb be replicate r; and let s_cmb be the across-replicate standard
-deviation. The raw cell-wise correction is the 2.5th percentile of
-min_b(τ*rcmb − τ̂_cmb). For the standardized joint band, each replicate takes
-M_rm = max_c,b[(mean_r τ*rcmb − τ*rcmb) / s_cmb], excluding zero-variance
-points. If q_m is the 97.5th percentile of M_rm, the joint lower band is
-L_cmb = τ̂_cmb − q_m s_cmb. The cell-wise max-t band uses the same expression
+Formally, let τ̂(c,m,b) be the observed tau-b for cell c, method m, and budget b;
+let τʳ(c,m,b) be replicate r; and let s(c,m,b) be the across-replicate standard
+deviation. The raw cell-wise correction is the 2.5th percentile of the minimum,
+over budgets b, of [τʳ(c,m,b) − τ̂(c,m,b)]. For the standardized joint band,
+each replicate takes M(r,m) as the maximum, over cells c and budgets b, of
+[{the replicate mean of τʳ(c,m,b)} − τʳ(c,m,b)] / s(c,m,b), excluding zero-variance
+points. If q(m) is the 97.5th percentile of M(r,m), the joint lower band is
+L(c,m,b) = τ̂(c,m,b) − q(m)s(c,m,b). The cell-wise max-t band uses the same expression
 with the maximum and critical value calculated separately within each cell.
 
 For RQ1, a 500-replicate two-way sensitivity independently resamples task
@@ -556,7 +558,7 @@ procedure-level budgets: the selected task identities need not match across
 cells.
 
 **Fig. 3 Number of panel-scope cells passing the primary policy at each exact
-budget** Gold outlines identify the first 4/4 budget.
+budget.** Gold outlines identify the first 4/4 budget.
 
 ![Exact common-budget matrix](figures/figure3_common_budget_matrix.png)
 
@@ -748,12 +750,12 @@ validation panel and related-system sensitivity. Even the remaining 475-task tem
 result depends on retraining the selector within each scope. It survives the
 budget-standardized joint max-t analysis but not the unstandardized raw band
 or the fixed-selection test. The strongest supported conclusion is therefore
-a limitation finding: the available public evidence certifies at most a 5%
+a limitation finding: the available public evidence supports at most a 5%
 procedure-level reduction, not one deployable 475-task set.
 
 Entropy remains a useful diagnostic baseline. It is simple, deterministic,
-and can perform well under a lenient policy. Yet it is not a robust primary-
-policy solution, and the present study does not claim algorithmic novelty. The
+and can perform well under a lenient policy. Yet it is not a robust primary-policy
+solution, and the present study does not claim algorithmic novelty. The
 temporal-core heuristic likewise does not justify a method paper: its apparent
 5% saving survives standardized joint curve control but disappears when one
 all-system-trained set is fixed across scopes.
@@ -936,11 +938,13 @@ random-budget coupling sensitivity, analysis history, and an HTML diagnostic
 report. Tables 3–11 are regenerated from the machine-readable artifact and
 checked in continuous integration.
 
-The formal local execution completed successfully on 26 August 2026. The
-authoritative GitHub Actions run identifier, experiment commit, and downloaded
-artifact digest are inserted after the v3 workflow completes; the final bundle
-is accepted only if its extracted tables match the local results and the
-manuscript consistency check passes.
+The authoritative GitHub Actions execution completed successfully on 26 August
+2026 (run 32970788181; workflow duration 23 min 38 s) from experiment commit
+`4bcbd4a2cd259f9722e1fa3eb83fa1e03b79df75`. The downloaded artifact has SHA-256
+`c66da9edd849c36335fb15a687331d2058cb8c900c29264d38b2d06b2070c334`.
+Its primary, harmonized, diagnostic, stability, coupling, and Online Resource
+CSVs match the local formal execution byte for byte, and the manuscript table
+consistency check passes against the downloaded artifact.
 
 Twenty-one unit and integration tests cover metric boundaries, tie-aware top-k sets, exact
 subset sizes, source parsing, cluster handling, decision thresholds, and the

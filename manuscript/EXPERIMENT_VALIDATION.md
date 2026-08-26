@@ -1,13 +1,18 @@
 # V3 experiment validation
 
-**Assessment:** The corrected local v3 formal run is internally consistent and
-suitable for manuscript revision. The GitHub Actions execution and public
-archival availability remain to be completed.
+**Assessment:** The corrected v3 formal run is internally consistent and was
+independently reproduced by the successful GitHub Actions execution. Public
+archival availability remains to be completed.
 
 ## Validated inputs and run
 
 - Configuration: `configs/formal.json`.
 - Local output: `artifacts/formal-v3-local-r3`.
+- GitHub Actions run: `32970788181` (successful; 23 min 38 s).
+- Experiment commit: `4bcbd4a2cd259f9722e1fa3eb83fa1e03b79df75`.
+- Downloaded artifact: `artifacts/github-run-32970788181/unpacked`.
+- Artifact ZIP SHA-256:
+  `c66da9edd849c36335fb15a687331d2058cb8c900c29264d38b2d06b2070c334`.
 - Experiments source commit: recorded in `source_manifest.json`.
 - Website source commit: recorded in `source_manifest.json`.
 - Data-quality decision: all checks passed.
@@ -32,6 +37,13 @@ pooled.
   independent-by-budget random paths.
 - Tables 3–11 reproduce from the artifact with
   `manuscript/scripts/sync_result_tables.py --check`.
+
+The official artifact and local run have identical SHA-256 digests for
+`formal_metrics.csv`, `harmonized_metrics.csv`, `harmonized_decisions.csv`,
+`curve_band_diagnostics.csv`, `curve_bootstrap_stability.csv`,
+`random_curve_coupling_sensitivity.csv`,
+`secondary_metrics_online_resource.csv`, `selection_overlap.csv`, and
+`fixed_selection_decisions.csv`.
 
 All tau-b values lie in [-1, 1], all tie-aware top-k Jaccard values lie in
 [0, 1], and all top-set size fields are populated.

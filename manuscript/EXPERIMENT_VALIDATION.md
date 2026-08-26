@@ -3,6 +3,12 @@
 **Assessment:** The local v2 formal run is internally consistent and suitable
 for manuscript revision. Public archival availability remains unresolved.
 
+The authoritative GitHub Actions execution is run `32962316617` at commit
+`eb3119b65cfb48ce758a5d9faea44c1cc6843cd2`. It completed successfully in
+8m45s. The downloaded artifact SHA-256 is
+`15338bb2fd7292f3e89959f3dcc672748702b99c04197757e07acbedfad37dcd`, exactly
+matching the digest reported by GitHub Actions.
+
 ## Validated inputs and run
 
 - Experiments source commit: `1faa91cade0562ba62b66c1c99e71f7b72d96f13`.

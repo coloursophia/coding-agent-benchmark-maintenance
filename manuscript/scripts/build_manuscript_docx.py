@@ -448,7 +448,6 @@ def build():
         if stripped.startswith("## "):
             heading = stripped[3:]
             if heading == "References":
-                doc.add_page_break()
                 in_references = True
             p = doc.add_paragraph(style="Heading 1")
             add_inline(p, heading)
@@ -503,6 +502,8 @@ def build():
         ):
             p.paragraph_format.page_break_before = True
         if text.startswith("**Keywords:"):
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        if text.startswith("The formal GitHub Actions execution"):
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         add_inline(p, text)
 

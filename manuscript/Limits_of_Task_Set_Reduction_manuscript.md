@@ -817,6 +817,13 @@ mapping, alternative-cluster results, bootstrap-stability checks, longitudinal
 summaries, and an HTML diagnostic report. Tables 3–9 are regenerated from the
 machine-readable artifact and checked in continuous integration.
 
+The formal GitHub Actions execution is run 32962316617 at commit
+`eb3119b65cfb48ce758a5d9faea44c1cc6843cd2`. Its uploaded artifact,
+`swe-bench-formal-discriminative-power-study`, has SHA-256 digest
+`15338bb2fd7292f3e89959f3dcc672748702b99c04197757e07acbedfad37dcd`.
+The run completed successfully on 26 August 2026; the downloaded archive was
+independently hashed to the same value before extraction and table checking.
+
 Eighteen unit tests cover metric boundaries, tie-aware top-k sets, exact
 subset sizes, source parsing, cluster handling, decision thresholds, and the
 non-monotone common-budget regression. The artifact contains 208 unique

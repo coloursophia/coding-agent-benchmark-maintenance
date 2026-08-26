@@ -282,8 +282,9 @@ Secondary outcomes:
 - Repository-stratified random empirical 2.5th percentile at least 0.85.
 - Deterministic selector cluster-bootstrap 2.5th percentile at least 0.80.
 - A paper-facing budget must pass in both panels and in both the all-system and
-  latest-per-cluster scopes. The reported robust budget is the largest
-  panel-scope requirement.
+  latest-per-cluster scopes at the same exact budget. The reported robust
+  budget is the smallest scanned budget that passes all four cells
+  simultaneously; it is not obtained by aggregating cell-specific minima.
 
 ### Threshold-sensitivity policies
 
@@ -327,8 +328,8 @@ latest-per-cluster dependence sensitivity.
 
 | Panel | Repository-stratified random | Entropy | Temporal core set |
 |---|---:|---:|---:|
-| Open-submission | 150 | 200 | 125 |
-| Standardized Bash-only | 500 | 150 | 475 |
+| Open-submission | 150 | 400 | 150 |
+| Standardized Bash-only | 500 | 300 | 475 |
 
 The standardized-panel repository-stratified result changes from 450 to 500.
 This is substantively important: related system variants make the all-system
@@ -339,26 +340,33 @@ random-sampling result too optimistic.
 | Method | Robust task budget | Reduction from 500 | Paper interpretation |
 |---|---:|---:|---|
 | Repository-stratified random | **500** | **0%** | No reliable task reduction survives both panels and dependence sensitivity. |
-| Entropy | **400** | **20%** | A bounded operational option; not a novel selector or universal guarantee. |
-| Temporal core set | **475** | **5%** | Only marginal reduction and no meaningful advantage over the simple entropy baseline. |
+| Entropy | **500** | **0%** | No primary-policy reduction passes every panel and dependence scope at one exact budget. |
+| Temporal core set | **475** | **5%** | Only marginal reduction; it is not a successful method contribution. |
 
-These three numbers—**500 / 400 / 475**—are the principal paper-facing task-
-budget result. Do not substitute the all-system-only values 450 / 400 / 475.
+These three numbers—**500 / 500 / 475**—are the principal paper-facing task-
+budget result. Do not substitute the all-system-only values 450 / 400 / 475 or
+aggregate cell-specific minima. A common budget must pass every requested
+panel-scope cell at that same exact budget because fidelity is not monotone in
+budget for deterministic selectors.
 
 ### Reliability-threshold sensitivity
 
 | Policy | Repository-stratified random | Entropy | Temporal core set |
 |---|---:|---:|---:|
 | Lenient | 500 (0%) | 250 (50%) | 475 (5%) |
-| Primary | 500 (0%) | 400 (20%) | 475 (5%) |
-| Strict | 500 (0%) | 400 (20%) | 475 (5%) |
+| Primary | 500 (0%) | 500 (0%) | 475 (5%) |
+| Strict | 500 (0%) | 500 (0%) | 475 (5%) |
 
 Interpretation:
 
 - The negative random-sampling result is unchanged under all three policies.
-- The entropy budget is threshold-sensitive under the lenient rule, but its
-  400-task result is unchanged between the primary and strict rules.
+- Entropy permits a 250-task budget only under the lenient rule. Under the
+  primary and strict policies it requires the full 500 tasks.
 - The temporal core-set conclusion is unchanged and weak under every policy.
+- Entropy fidelity is visibly non-monotone in the standardized cluster-latest
+  scope: budgets 150–300 pass the primary cell rule, budgets 400–475 fail, and
+  the 500-task positive control passes. This invalidates any aggregation based
+  on monotone pass/fail assumptions.
 
 ### Pilot correction
 
@@ -376,8 +384,9 @@ The Results and Discussion must center the following findings in this order:
 2. **Related-system dependence changes the conclusion.** The apparent
    450-task random-sampling saving disappears when retaining the latest system
    in each related cluster.
-3. **Simple entropy selection retains limited utility.** It preserves a 20%
-   reduction under both the primary and strict reliability policies.
+3. **Simple entropy selection is not robust under the primary policy.** It
+   permits a 50% reduction only under the lenient sensitivity rule and requires
+   the full benchmark under the primary and strict rules.
 4. **The exploratory temporal core set is not successful as a method
    contribution.** Its robust budget is 475 tasks and it does not justify an
    algorithm paper.
@@ -394,8 +403,10 @@ paper into an entropy-algorithm success story.
 
 - The 150-task pilot conclusion did not generalize to the time-external panel.
 - Related-system dependence materially changed the random-baseline budget.
-- In the observed panels, entropy selection retained a 20% task reduction
-  under primary and strict reliability thresholds.
+- In the observed panels, entropy selection required all 500 tasks under the
+  primary and strict reliability thresholds.
+- Under the lenient sensitivity rule, entropy selection admitted a 250-task
+  common budget, but this does not replace the primary conclusion.
 - Repository-stratified random sampling required all 500 tasks under the
   robust decision rule.
 - The temporal core-set heuristic offered only a 5% robust reduction.
@@ -535,10 +546,11 @@ Required threats:
 ### 7. Conclusion
 
 The conclusion should state that aggressive task reduction was not supported
-by the time-external and dependence-aware evidence. A 400-task entropy subset
-was the only material reduction surviving the primary and strict policies in
-the observed panels, while random sampling required the complete benchmark.
-End with periodic revalidation, not a universal subset recommendation.
+by the time-external and dependence-aware evidence. Both repository-stratified
+random sampling and entropy selection required the complete benchmark under
+the primary and strict policies; the temporal core set retained only a 5%
+reduction. End with periodic revalidation, not a universal subset
+recommendation.
 
 ## 14. Tables and figures required
 
@@ -573,12 +585,14 @@ The writing AI may draft the abstract from this evidence sequence:
    uncertainty; related-system and threshold sensitivity.
 4. **Results:** the developmental open panel suggests some 150-task decisions,
    but the 2026 time-external standardized panel requires 450–475 tasks before
-   dependence sensitivity; after that sensitivity, robust budgets are 500 for
-   repository-stratified random, 400 for entropy, and 475 for the temporal core
-   set. Entropy's 400-task result persists under primary and strict policies.
+   dependence sensitivity; after requiring one exact budget to pass every
+   panel-scope cell, robust budgets are 500 for repository-stratified random,
+   500 for entropy, and 475 for the temporal core set. Entropy admits 250 tasks
+   only under the lenient sensitivity policy.
 5. **Conclusion:** aggressive task reduction is not temporally reliable;
-   periodic, dependence-aware revalidation is necessary, and simple entropy
-   selection offers only a bounded 20% reduction in the observed panels.
+   periodic, dependence-aware revalidation is necessary, and neither random
+   nor entropy selection supports a primary-policy reduction in the observed
+   panels.
 
 Do not insert claims of statistical significance unless a reported interval or
 predeclared decision rule directly supports them.
@@ -635,7 +649,7 @@ no model API, secret, GPU, local dataset, or local computer after dispatch.
     algorithm narrative for perceived publishability.
 11. Keep exact exclusions and source provenance in Methodology or an appendix.
 12. Report the primary and sensitivity rules as predeclared analytical
-    policies, not as thresholds selected to obtain 400 tasks.
+    policies, not as thresholds selected to obtain a particular budget.
 13. State that the planned experiment package is complete. New experiments
     are not required for the present bounded EMSE manuscript unless peer review
     requests an extension.
@@ -648,6 +662,6 @@ here; it does not support the former build-log-effect paper.
 
 The manuscript's defensible headline is a limitation finding: task-set
 reductions that appear adequate in a developmental panel can fail under later
-systems and dependence-aware analysis. In the observed evidence, simple
-entropy selection preserves a bounded 20% reduction, whereas random sampling
-requires the full 500-task benchmark.
+systems and dependence-aware analysis. In the observed evidence, both simple
+entropy selection and random sampling require the full 500-task benchmark
+under the primary and strict policies.

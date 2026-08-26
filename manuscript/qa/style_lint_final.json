@@ -1,0 +1,171 @@
+{
+  "input": "C:\\D disk\\MYFile of Study\\codex\\K1-\u5b9e\u9a8c\\manuscript\\Limits_of_Task_Set_Reduction_EMSE_draft_v1.0.docx",
+  "fonts_by_char_count": {
+    "Calibri": 1545,
+    "Consolas": 340
+  },
+  "direct_run_formatting_runs": 165,
+  "direct_paragraph_formatting_paragraphs": 131,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 2,
+      "text": "RESEARCH ARTICLE",
+      "style": "Normal"
+    },
+    {
+      "para_index": 3,
+      "text": "Limits of Task-Set Reduction in SWE-bench Verified",
+      "style": "Normal"
+    },
+    {
+      "para_index": 5,
+      "text": "Anonymous manuscript for review",
+      "style": "Normal"
+    },
+    {
+      "para_index": 163,
+      "text": "Source format",
+      "style": "Normal"
+    },
+    {
+      "para_index": 164,
+      "text": "Discovered directories",
+      "style": "Normal"
+    },
+    {
+      "para_index": 165,
+      "text": "Usable matrices",
+      "style": "Normal"
+    },
+    {
+      "para_index": 166,
+      "text": "Main exclusions",
+      "style": "Normal"
+    },
+    {
+      "para_index": 167,
+      "text": "Maximum included score difference",
+      "style": "Normal"
+    },
+    {
+      "para_index": 178,
+      "text": "Panel",
+      "style": "Normal"
+    },
+    {
+      "para_index": 179,
+      "text": "Earlier period",
+      "style": "Normal"
+    },
+    {
+      "para_index": 180,
+      "text": "Later period",
+      "style": "Normal"
+    },
+    {
+      "para_index": 181,
+      "text": "Systems",
+      "style": "Normal"
+    },
+    {
+      "para_index": 182,
+      "text": "Cluster field",
+      "style": "Normal"
+    },
+    {
+      "para_index": 183,
+      "text": "Clusters",
+      "style": "Normal"
+    },
+    {
+      "para_index": 184,
+      "text": "Top-k",
+      "style": "Normal"
+    },
+    {
+      "para_index": 199,
+      "text": "Panel",
+      "style": "Normal"
+    },
+    {
+      "para_index": 200,
+      "text": "Systems",
+      "style": "Normal"
+    },
+    {
+      "para_index": 201,
+      "text": "Solve-rate change [95% interval]",
+      "style": "Normal"
+    },
+    {
+      "para_index": 202,
+      "text": "Entropy change [95% interval]",
+      "style": "Normal"
+    },
+    {
+      "para_index": 203,
+      "text": "Task-difficulty tau-b",
+      "style": "Normal"
+    }
+  ],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "text": "RESEARCH ARTICLE",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "text": "Limits of Task-Set Reduction in SWE-bench Verified",
+        "style": "Normal"
+      },
+      {
+        "para_index": 4,
+        "text": "A Temporal Study of Leaderboard Ranking Reliability",
+        "style": "Normal"
+      },
+      {
+        "para_index": 5,
+        "text": "Anonymous manuscript for review",
+        "style": "Normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 2,
+        "run_text": "RESEARCH ARTICLE",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "run_text": "Limits of Task-Set Reduction in SWE-bench Verified",
+        "style": "Normal"
+      },
+      {
+        "para_index": 4,
+        "run_text": "A Temporal Study of Leaderboard Ranking Reliability",
+        "style": "Normal"
+      },
+      {
+        "para_index": 5,
+        "run_text": "Anonymous manuscript for review",
+        "style": "Normal"
+      },
+      {
+        "para_index": 6,
+        "run_text": "Target journal: Empirical Software Engineering",
+        "style": "Normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

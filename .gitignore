@@ -5,3 +5,7 @@ results/
 data/
 pilot-output/
 formal-output/
+artifacts/
+formal-output-recheck/
+manuscript/qa/render*/
+manuscript/qa/a11y_v1.json

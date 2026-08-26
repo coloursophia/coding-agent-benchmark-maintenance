@@ -104,17 +104,18 @@ For each panel, the reliable random-baseline budget is the smallest budget with
 mean held-out tau-b at least 0.90 and empirical 2.5th percentile at least 0.85.
 For deterministic entropy and temporal-core-set selectors, the descriptive
 checkpoint additionally requires a cluster-bootstrap 2.5th percentile of at
-least 0.80. Cross-panel claims use the larger of the two panel-specific
-budgets. The paper-facing robust decision also takes the larger budget across
-the all-systems and latest-entry-per-cluster scopes. The 500-task endpoint is
-retained as a mandatory positive control.
+least 0.80. Common-budget claims scan the candidate budgets in ascending order
+and select the first single budget that passes every requested panel-scope cell
+at that exact budget. They do not take the maximum of cell-specific minima,
+because held-out fidelity is not assumed to be monotone in task budget. The
+500-task endpoint is retained as a mandatory positive control.
 
 Threshold dependence is reported with three fixed policies: lenient
 (mean tau-b 0.85; lower bound 0.80 for random and 0.75 for deterministic
 selectors), primary (0.90; 0.85/0.80), and strict (0.95; 0.90/0.85). Each
-policy recomputes the worst-case budget across both panels and both dependence
-scopes; it is a sensitivity analysis, not a replacement outcome selected after
-seeing the data.
+policy recomputes the first exact common budget across both panels and both
+dependence scopes; it is a sensitivity analysis, not a replacement outcome
+selected after seeing the data.
 
 ## Known non-removable threats
 

@@ -122,7 +122,7 @@ the warning list is updated over time.
 | Gap | Existing work studies benchmark construction, test adequacy, ranking corrections, ecosystem composition, and benchmark evolution, but not whether task-budget ranking fidelity transfers to later systems across execution panels under related-system dependence. |
 | Method | Secondary-data temporal evaluation with frozen earlier-period selection, later-period ranking, two non-pooled panels, repeated baselines, clustered uncertainty, latest-per-cluster sensitivity, threshold sensitivity, and positive control. |
 | Main experiment | 51→78 open-submission systems and 27→11 standardized systems over 500 canonical tasks; 208 budget-method-scope-panel metric rows. |
-| Main result | Robust cross-panel budgets are 500 for repository-stratified random sampling, 400 for entropy selection, and 475 for the temporal core set. The apparent 450-task random-sampling saving disappears after related-system sensitivity. |
+| Main result | Robust cross-panel budgets are 500 for repository-stratified random sampling, 500 for entropy selection, and 475 for the temporal core set. The apparent 450-task random-sampling saving disappears after related-system sensitivity, and entropy's apparent 400-task result disappears when every panel-scope cell must pass at one exact budget. |
 | Risk control | No causal claim, no universal benchmark claim, no cost claim without runtime measurement, no algorithm-novelty claim, no pooling of execution environments, and explicit development/time-external distinction. |
 
 ## Claims and title vocabulary
@@ -139,8 +139,9 @@ The paper may claim:
 
 - the 150-task pilot conclusion did not generalize;
 - related-system dependence materially changes the random-baseline decision;
-- entropy selection retained a 20% task reduction under primary and strict
-  reliability thresholds in the observed panels;
+- entropy selection required the full 500 tasks under primary and strict
+  reliability thresholds in the observed panels, while admitting 250 tasks
+  only under the lenient sensitivity rule;
 - the temporal core-set heuristic did not provide a practically meaningful or
   stable advantage.
 
@@ -156,8 +157,8 @@ The paper may not claim:
 
 1. Write Results around the negative finding first: apparent reductions weaken
    under time-external and dependence-aware evaluation.
-2. Treat the entropy result as a bounded operational option, not the headline
-   algorithmic contribution.
+2. Treat entropy as a revealing baseline whose non-monotone fidelity defeats
+   the apparent primary-policy reduction, not as an algorithmic contribution.
 3. Position UTBoost and the ICSE-SEIP ecosystem audit as complementary validity
    threats and neighboring work, not baselines.
 4. Make the 2025 open panel a development replication and the 2026 Bash-only

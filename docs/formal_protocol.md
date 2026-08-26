@@ -52,7 +52,7 @@ does not redistribute the upstream per-task outcome matrices.
    within 0.15 percentage points. This tolerance covers the documented source
    artifacts that use 499 rather than 500 as the published-score denominator;
    larger discrepancies are excluded and enumerated.
-5. Every panel-period must meet its predeclared minimum system count.
+5. Every panel-period must meet its protocol-defined minimum system count.
 6. A result folder absent from the official leaderboard metadata is excluded
    from the paper-facing panel and enumerated.
 7. Exact duplicate outcome signatures are reported rather than silently

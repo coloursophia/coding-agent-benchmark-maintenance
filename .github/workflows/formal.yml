@@ -36,6 +36,8 @@ jobs:
           test -s formal-output/report.html
           test -s formal-output/summary.md
           test -s formal-output/formal_metrics.csv
+          test -s formal-output/secondary_metrics_online_resource.csv
+          test -s formal-output/analysis_history.md
           test -s formal-output/threshold_sensitivity.csv
           test -s formal-output/longitudinal.csv
           test -s formal-output/formal_results.json
@@ -44,6 +46,9 @@ jobs:
           test -s formal-output/harmonized_metrics.csv
           test -s formal-output/harmonized_decisions.csv
           test -s formal-output/budget_stability.csv
+          test -s formal-output/curve_band_diagnostics.csv
+          test -s formal-output/curve_bootstrap_stability.csv
+          test -s formal-output/random_curve_coupling_sensitivity.csv
           test -s formal-output/selection_overlap.csv
           test -s formal-output/fixed_selection_sensitivity.csv
           test -s formal-output/fixed_selection_decisions.csv

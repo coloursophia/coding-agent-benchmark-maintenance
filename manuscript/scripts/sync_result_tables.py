@@ -121,19 +121,21 @@ def table7(artifact: pathlib.Path) -> str:
     rows = read_csv(artifact / "harmonized_decisions.csv")
     lookup = {row["method"]: row for row in rows}
     lines = [
-        "| Selection procedure | Pointwise common budget | Simultaneous-band common budget |",
-        "|---|---:|---:|",
+        "| Selection procedure | Pointwise | Raw cell-wise | Cell-wise max-t | Joint max-t |",
+        "|---|---:|---:|---:|---:|",
     ]
     for method, label in METHODS:
         row = lookup[method]
         lines.append(
             f"| {label} | {fmt_budget(row['pointwise_common_reliable_budget'] or None)} | "
-            f"**{fmt_budget(row['simultaneous_band_common_reliable_budget'] or None)}** |"
+            f"{fmt_budget(row['raw_cellwise_common_reliable_budget'] or None)} | "
+            f"{fmt_budget(row['cellwise_max_t_common_reliable_budget'] or None)} | "
+            f"**{fmt_budget(row['joint_max_t_common_reliable_budget'] or None)}** |"
         )
     return "\n".join(lines)
 
 
-def table8(artifact: pathlib.Path) -> str:
+def table10_selection_overlap(artifact: pathlib.Path) -> str:
     rows = [row for row in read_csv(artifact / "selection_overlap.csv") if int(row["budget"]) == 475]
     lines = [
         "| Panel | Deterministic procedure | Jaccard overlap | Shared tasks |",
@@ -149,7 +151,7 @@ def table8(artifact: pathlib.Path) -> str:
     return "\n".join(lines)
 
 
-def table9(artifact: pathlib.Path) -> str:
+def table11_fixed_selection(artifact: pathlib.Path) -> str:
     rows = read_csv(artifact / "fixed_selection_decisions.csv")
     lookup = {row["method"]: row for row in rows}
     lines = [
@@ -157,10 +159,65 @@ def table9(artifact: pathlib.Path) -> str:
         "|---|---:|---:|",
     ]
     for method, label in METHODS:
+        if method in {"random", "repo_stratified_random"}:
+            continue
         row = lookup[method]
         value = row["fixed_all_system_selection_common_budget"] or None
         included = "Yes" if row["random_task_uncertainty"].casefold() == "true" else "No"
         lines.append(f"| {label} | {fmt_budget(value)} | {included} |")
+    return "\n".join(lines)
+
+
+def table8_bands(artifact: pathlib.Path) -> str:
+    rows = [
+        row for row in read_csv(artifact / "harmonized_metrics.csv")
+        if row["method"] == "temporal_coreset" and int(row["budget"]) == 475
+    ]
+    panels = dict(PANELS)
+    scopes = dict(SCOPES)
+    lines = [
+        "| Panel and scope | Point estimate | Pointwise q.025 | Raw cell-wise | Cell-wise max-t | Joint max-t |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for panel, _ in PANELS:
+        for scope, _ in SCOPES:
+            row = next(item for item in rows if item["panel"] == panel and item["scope"] == scope)
+            lines.append(
+                f"| {panels[panel]}, {scopes[scope]} | {float(row['tau_b']):.3f} | "
+                f"{float(row['tau_b_q025']):.3f} | {float(row['raw_cellwise_lower_band']):.3f} | "
+                f"{float(row['cellwise_max_t_lower_band']):.3f} | {float(row['joint_max_t_lower_band']):.3f} |"
+            )
+    return "\n".join(lines)
+
+
+def table9_stability(artifact: pathlib.Path) -> str:
+    rows = read_csv(artifact / "curve_bootstrap_stability.csv")
+    lines = [
+        "| Selection procedure | Pointwise budget range | Raw cell-wise range | Joint max-t range | First-pass 475 probability range | Persistent-475 probability range |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for method, label in METHODS:
+        unique = {}
+        for row in rows:
+            if row["method"] == method:
+                unique[row["seed"]] = row
+        selected = list(unique.values())
+
+        def budget_range(field):
+            values = [int(row[field]) for row in selected if row[field]]
+            return "—" if not values else (str(values[0]) if min(values) == max(values) else f"{min(values)}–{max(values)}")
+
+        def probability_range(field):
+            values = [float(row[field]) for row in selected]
+            return f"{100 * min(values):.0f}–{100 * max(values):.0f}%"
+
+        lines.append(
+            f"| {label} | {budget_range('pointwise_common_reliable_budget')} | "
+            f"{budget_range('raw_cellwise_common_reliable_budget')} | "
+            f"{budget_range('joint_max_t_common_reliable_budget')} | "
+            f"{probability_range('first_passing_475_probability')} | "
+            f"{probability_range('persistent_rule_475_probability')} |"
+        )
     return "\n".join(lines)
 
 
@@ -186,8 +243,10 @@ def render(artifact: pathlib.Path, manuscript: pathlib.Path) -> str:
         (5, table5(rows, primary)),
         (6, table6(rows, policies)),
         (7, table7(artifact)),
-        (8, table8(artifact)),
-        (9, table9(artifact)),
+        (8, table8_bands(artifact)),
+        (9, table9_stability(artifact)),
+        (10, table10_selection_overlap(artifact)),
+        (11, table11_fixed_selection(artifact)),
     ):
         text = replace_block(text, number, content)
     return text
@@ -205,7 +264,7 @@ def main():
         if rendered != current:
             print("Manuscript result tables are not synchronized with the formal artifact", file=sys.stderr)
             raise SystemExit(1)
-        print("Manuscript Tables 3–9 match the formal artifact")
+        print("Manuscript Tables 3–11 match the formal artifact")
     else:
         args.manuscript.write_text(rendered, encoding="utf-8")
 

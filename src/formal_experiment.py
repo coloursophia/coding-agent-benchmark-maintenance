@@ -15,6 +15,7 @@ import datetime as dt
 import hashlib
 import html
 import json
+import math
 import pathlib
 import random
 import re
@@ -547,30 +548,100 @@ def sampled_cluster_indices(rows: list[dict], cluster_field: str, rng: random.Ra
     return [index for key in rng.choices(keys, k=len(keys)) for index in groups[key]]
 
 
+def nested_uniform_subsets(task_count: int, budgets: list[int], rng: random.Random) -> dict[int, list[int]]:
+    """Draw one random task ordering and return its nested budget prefixes."""
+    ordering = list(range(task_count))
+    rng.shuffle(ordering)
+    return {budget: sorted(ordering[:budget]) for budget in budgets}
+
+
+def nested_repository_subsets(
+    instance_ids: list[str], budgets: list[int], rng: random.Random
+) -> dict[int, list[int]]:
+    """Build a nested, approximately proportional repository-stratified path.
+
+    At each step the repository with the largest proportional allocation
+    deficit supplies its next randomly ordered task.  This defines one deployable
+    random ordering, keeps every larger budget a superset of every smaller one,
+    and reaches the exact 500-task endpoint.
+    """
+    groups = defaultdict(list)
+    for index, task_id in enumerate(instance_ids):
+        groups[task_id.split("__", 1)[0]].append(index)
+    for indices in groups.values():
+        rng.shuffle(indices)
+    keys = sorted(groups)
+    total = len(instance_ids)
+    selected_counts = {key: 0 for key in keys}
+    ordering = []
+    checkpoints = set(budgets)
+    output = {}
+    for step in range(1, max(budgets) + 1):
+        available = [key for key in keys if selected_counts[key] < len(groups[key])]
+        key = max(
+            available,
+            key=lambda item: (
+                step * len(groups[item]) / total - selected_counts[item],
+                -selected_counts[item],
+                str(item),
+            ),
+        )
+        ordering.append(groups[key][selected_counts[key]])
+        selected_counts[key] += 1
+        if step in checkpoints:
+            output[step] = sorted(ordering)
+    return output
+
+
+def wilson_interval(successes: int, trials: int, z: float = 1.959963984540054) -> tuple[float, float]:
+    """Return a two-sided Wilson interval for a binomial proportion."""
+    if trials <= 0:
+        return float("nan"), float("nan")
+    proportion = successes / trials
+    denominator = 1.0 + z * z / trials
+    centre = (proportion + z * z / (2.0 * trials)) / denominator
+    half_width = z * math.sqrt(
+        proportion * (1.0 - proportion) / trials + z * z / (4.0 * trials * trials)
+    ) / denominator
+    return max(0.0, centre - half_width), min(1.0, centre + half_width)
+
+
 def harmonized_curve_bootstrap(
     panels: list[dict],
     sources: dict[str, list[dict]],
     instance_ids: list[str],
     metric_rows: list[dict],
     config: dict,
-) -> tuple[list[dict], list[dict], list[dict]]:
-    """Use one curve-wise uncertainty protocol across all four selectors.
+) -> tuple[list[dict], list[dict], list[dict], list[dict], list[dict], list[dict]]:
+    """Bootstrap complete budget curves under a joint decision-family design.
 
-    Every replicate resamples held-out system clusters once for the complete
-    13-budget curve.  Stochastic procedures additionally redraw their task
-    subset; deterministic procedures keep their trained subset fixed.  This
-    yields comparable system-population uncertainty while preserving the
-    task-selection variability intrinsic to random procedures.
+    Each seed contributes ``harmonized_bootstrap_repetitions`` replicates.  A
+    replicate draws held-out clusters once per panel and reuses that draw for
+    both the all-system and cluster-latest scopes.  The two panels are sampled
+    independently and paired by replicate index.  Random procedures draw one
+    nested task ordering per panel-replicate; deterministic procedures retain
+    the task set trained for their scope.  The pooled replicates support
+    empirical pointwise bounds, the legacy raw-deviation cell-wise band,
+    budget-standardized cell-wise max-t bands, and a max-t band over the full
+    four-cell by budget decision family.
     """
     budgets = config["task_budgets"]
     methods = ("random", "repo_stratified_random", "entropy", "temporal_coreset")
-    repetitions = config["harmonized_bootstrap_repetitions"]
+    repetitions_per_seed = config["harmonized_bootstrap_repetitions"]
+    seeds = config["harmonized_bootstrap_seeds"]
+    repetitions = repetitions_per_seed * len(seeds)
+    independent_repetitions = config.get("independent_budget_coupling_repetitions", 0)
     point_lookup = {
         (row["panel"], row["scope"], row["method"], int(row["budget"])): float(row["tau_b"])
         for row in metric_rows
     }
-    curves = {}
-    cells = []
+    curves = defaultdict(list)
+    independent_curves = defaultdict(list)
+    cells = [
+        (panel["name"], scope)
+        for panel in panels
+        for scope in ("all_systems", "cluster_latest")
+    ]
     for panel_index, panel in enumerate(panels):
         source_rows = sources[panel["source"]]
         train = [row for row in source_rows if row["year"] == panel["train_year"]]
@@ -582,56 +653,217 @@ def harmonized_curve_bootstrap(
                 latest_per_cluster(test, panel["cluster_field"]),
             ),
         }
-        for scope_index, (scope, (scope_train, scope_test)) in enumerate(scope_rows.items()):
-            cell = (panel["name"], scope)
-            cells.append(cell)
-            full_scores = core.subset_scores(scope_test, list(range(len(instance_ids))))
-            deterministic = {
-                ("entropy", budget): core.entropy_subset(instance_ids, scope_train, budget)
-                for budget in budgets
-            } | {
-                ("temporal_coreset", budget): core.temporal_coreset(instance_ids, scope_train, budget)
-                for budget in budgets
-            }
-            for repetition in range(repetitions):
-                cluster_rng = random.Random(1_000_000 + panel_index * 100_000 + scope_index * 10_000 + repetition)
-                indices = sampled_cluster_indices(scope_test, panel["cluster_field"], cluster_rng)
-                boot_full = [full_scores[index] for index in indices]
-                for budget in budgets:
-                    subsets = {
-                        "random": core.uniform_random_subset(
-                            instance_ids, budget,
-                            2_000_000 + panel_index * 1_000_000 + scope_index * 100_000 + budget * 500 + repetition,
-                        ),
-                        "repo_stratified_random": core.repository_stratified_subset(
-                            instance_ids, budget,
-                            3_000_000 + panel_index * 1_000_000 + scope_index * 100_000 + budget * 500 + repetition,
-                        ),
-                        "entropy": deterministic[("entropy", budget)],
-                        "temporal_coreset": deterministic[("temporal_coreset", budget)],
-                    }
-                    for method, subset in subsets.items():
-                        reduced = core.subset_scores(scope_test, subset)
-                        curves[(cell, method, repetition, budget)] = core.kendall_tau_b(
-                            boot_full, [reduced[index] for index in indices]
-                        )
+        cluster_groups = defaultdict(list)
+        for index, row in enumerate(test):
+            cluster_groups[row[panel["cluster_field"]]].append(index)
+        cluster_keys = sorted(cluster_groups)
+        latest_test = scope_rows["cluster_latest"][1]
+        latest_index = {
+            row[panel["cluster_field"]]: index for index, row in enumerate(latest_test)
+        }
+        full_scores = {
+            scope: core.subset_scores(scope_test, list(range(len(instance_ids))))
+            for scope, (_, scope_test) in scope_rows.items()
+        }
+        deterministic_scores = {}
+        for scope, (scope_train, scope_test) in scope_rows.items():
+            for budget in budgets:
+                for method, selector in (
+                    ("entropy", core.entropy_subset),
+                    ("temporal_coreset", core.temporal_coreset),
+                ):
+                    subset = selector(instance_ids, scope_train, budget)
+                    deterministic_scores[(scope, method, budget)] = core.subset_scores(scope_test, subset)
+
+        for seed_index, seed in enumerate(seeds):
+            for local_repetition in range(repetitions_per_seed):
+                replicate_seed = seed * 10_000_000 + panel_index * 1_000_000 + local_repetition
+                cluster_rng = random.Random(replicate_seed + 11)
+                drawn_clusters = cluster_rng.choices(cluster_keys, k=len(cluster_keys))
+                bootstrap_indices = {
+                    "all_systems": [
+                        index for key in drawn_clusters for index in cluster_groups[key]
+                    ],
+                    "cluster_latest": [latest_index[key] for key in drawn_clusters],
+                }
+                random_paths = {
+                    "random": nested_uniform_subsets(
+                        len(instance_ids), budgets, random.Random(replicate_seed + 101)
+                    ),
+                    "repo_stratified_random": nested_repository_subsets(
+                        instance_ids, budgets, random.Random(replicate_seed + 211)
+                    ),
+                }
+                for scope, (_, scope_test) in scope_rows.items():
+                    cell = (panel["name"], scope)
+                    indices = bootstrap_indices[scope]
+                    boot_full = [full_scores[scope][index] for index in indices]
+                    for budget in budgets:
+                        for method in methods:
+                            if budget == len(instance_ids):
+                                value = 1.0
+                            else:
+                                if method in random_paths:
+                                    reduced = core.subset_scores(scope_test, random_paths[method][budget])
+                                else:
+                                    reduced = deterministic_scores[(scope, method, budget)]
+                                value = core.kendall_tau_b(
+                                    boot_full, [reduced[index] for index in indices]
+                                )
+                            curves[(cell, method, budget)].append(value)
+
+                            if (
+                                seed_index == 0
+                                and local_repetition < independent_repetitions
+                                and method in random_paths
+                            ):
+                                if budget == len(instance_ids):
+                                    independent_value = 1.0
+                                else:
+                                    independent_seed = replicate_seed + budget * 10_000
+                                    subset = (
+                                        core.uniform_random_subset(instance_ids, budget, independent_seed + 307)
+                                        if method == "random"
+                                        else core.repository_stratified_subset(instance_ids, budget, independent_seed + 401)
+                                    )
+                                    independent_reduced = core.subset_scores(scope_test, subset)
+                                    independent_value = core.kendall_tau_b(
+                                        boot_full, [independent_reduced[index] for index in indices]
+                                    )
+                                independent_curves[(cell, method, budget)].append(independent_value)
+
+    def curve_summary(curve_source: dict, slice_start: int = 0, slice_end: int | None = None):
+        values_lookup = {
+            key: values[slice_start:slice_end]
+            for key, values in curve_source.items()
+        }
+        centres = {key: statistics.fmean(values) for key, values in values_lookup.items()}
+        standard_errors = {
+            key: statistics.stdev(values) if len(values) > 1 else 0.0
+            for key, values in values_lookup.items()
+        }
+        exact = {
+            key: key[2] == len(instance_ids) or standard_errors[key] <= 1e-12
+            for key in values_lookup
+        }
+        raw_corrections = {}
+        cellwise_critical = {}
+        joint_critical = {}
+        driver_rows = []
+        active_methods = sorted({key[1] for key in values_lookup})
+        for cell in cells:
+            panel, scope = cell
+            for method in active_methods:
+                available = [budget for budget in budgets if (cell, method, budget) in values_lookup]
+                nonexact = [budget for budget in available if not exact[(cell, method, budget)]]
+                if not nonexact:
+                    raw_corrections[(cell, method)] = 0.0
+                    cellwise_critical[(cell, method)] = 0.0
+                    continue
+                n = len(values_lookup[(cell, method, nonexact[0])])
+                raw_deviations = []
+                standardized_maxima = []
+                raw_driver_counts = Counter()
+                max_t_driver_counts = Counter()
+                for repetition in range(n):
+                    raw_budget = min(
+                        nonexact,
+                        key=lambda budget: values_lookup[(cell, method, budget)][repetition]
+                        - point_lookup[(panel, scope, method, budget)],
+                    )
+                    max_t_budget = max(
+                        nonexact,
+                        key=lambda budget: (
+                            centres[(cell, method, budget)]
+                            - values_lookup[(cell, method, budget)][repetition]
+                        ) / standard_errors[(cell, method, budget)],
+                    )
+                    raw_driver_counts[raw_budget] += 1
+                    max_t_driver_counts[max_t_budget] += 1
+                    raw_deviations.append(
+                        values_lookup[(cell, method, raw_budget)][repetition]
+                        - point_lookup[(panel, scope, method, raw_budget)]
+                    )
+                    standardized_maxima.append((
+                        centres[(cell, method, max_t_budget)]
+                        - values_lookup[(cell, method, max_t_budget)][repetition]
+                    ) / standard_errors[(cell, method, max_t_budget)])
+                raw_corrections[(cell, method)] = core.quantile(raw_deviations, 0.025)
+                cellwise_critical[(cell, method)] = core.quantile(standardized_maxima, 0.975)
+                for budget in available:
+                    driver_rows.append({
+                        "band": "raw_deviation_cellwise",
+                        "panel": panel,
+                        "scope": scope,
+                        "method": method,
+                        "budget": budget,
+                        "driver_count": raw_driver_counts[budget],
+                        "driver_probability": raw_driver_counts[budget] / n,
+                        "critical_value": raw_corrections[(cell, method)],
+                    })
+                    driver_rows.append({
+                        "band": "standardized_max_t_cellwise",
+                        "panel": panel,
+                        "scope": scope,
+                        "method": method,
+                        "budget": budget,
+                        "driver_count": max_t_driver_counts[budget],
+                        "driver_probability": max_t_driver_counts[budget] / n,
+                        "critical_value": cellwise_critical[(cell, method)],
+                    })
+
+        for method in active_methods:
+            available = [
+                (cell, budget) for cell in cells for budget in budgets
+                if (cell, method, budget) in values_lookup and not exact[(cell, method, budget)]
+            ]
+            if not available:
+                joint_critical[method] = 0.0
+                continue
+            n = len(values_lookup[(available[0][0], method, available[0][1])])
+            maxima = []
+            driver_counts = Counter()
+            for repetition in range(n):
+                driver = max(
+                    available,
+                    key=lambda item: (
+                        centres[(item[0], method, item[1])]
+                        - values_lookup[(item[0], method, item[1])][repetition]
+                    ) / standard_errors[(item[0], method, item[1])],
+                )
+                driver_counts[driver] += 1
+                maxima.append((
+                    centres[(driver[0], method, driver[1])]
+                    - values_lookup[(driver[0], method, driver[1])][repetition]
+                ) / standard_errors[(driver[0], method, driver[1])])
+            joint_critical[method] = core.quantile(maxima, 0.975)
+            for cell, budget in available:
+                driver_rows.append({
+                    "band": "standardized_max_t_joint_four_cells",
+                    "panel": cell[0],
+                    "scope": cell[1],
+                    "method": method,
+                    "budget": budget,
+                    "driver_count": driver_counts[(cell, budget)],
+                    "driver_probability": driver_counts[(cell, budget)] / n,
+                    "critical_value": joint_critical[method],
+                })
+        return values_lookup, centres, standard_errors, exact, raw_corrections, cellwise_critical, joint_critical, driver_rows
+
+    (
+        pooled_values, pooled_centres, pooled_se, pooled_exact, raw_corrections,
+        cellwise_critical, joint_critical, driver_rows,
+    ) = curve_summary(curves)
 
     output_rows = []
     for cell in cells:
         panel, scope = cell
         for method in methods:
-            correction_values = []
-            for repetition in range(repetitions):
-                correction_values.append(min(
-                    curves[(cell, method, repetition, budget)]
-                    - point_lookup[(panel, scope, method, budget)]
-                    for budget in budgets
-                ))
-            simultaneous_correction = core.quantile(correction_values, 0.025)
             for budget in budgets:
-                values = [curves[(cell, method, repetition, budget)] for repetition in range(repetitions)]
+                values = pooled_values[(cell, method, budget)]
                 point = point_lookup[(panel, scope, method, budget)]
-                exact_endpoint = all(abs(value - point) <= 1e-12 for value in values)
+                exact_endpoint = pooled_exact[(cell, method, budget)]
+                standard_error = pooled_se[(cell, method, budget)]
                 output_rows.append({
                     "panel": panel,
                     "scope": scope,
@@ -639,15 +871,18 @@ def harmonized_curve_bootstrap(
                     "budget": budget,
                     "tau_b": point,
                     "tau_b_bootstrap_mean": statistics.fmean(values),
+                    "tau_b_bootstrap_sd": standard_error,
                     "tau_b_q025": core.quantile(values, 0.025),
                     "tau_b_q975": core.quantile(values, 0.975),
-                    # A zero-variance endpoint (notably the exact 500-task
-                    # positive control) remains exact instead of inheriting a
-                    # curve-wide deviation observed only at other budgets.
-                    "simultaneous_lower_band": point if exact_endpoint else point + simultaneous_correction,
+                    "raw_cellwise_lower_band": point if exact_endpoint else point + raw_corrections[(cell, method)],
+                    "cellwise_max_t_lower_band": point if exact_endpoint else point - cellwise_critical[(cell, method)] * standard_error,
+                    "joint_max_t_lower_band": point if exact_endpoint else point - joint_critical[method] * standard_error,
                     "repetitions": repetitions,
+                    "repetitions_per_seed": repetitions_per_seed,
+                    "seed_count": len(seeds),
                     "system_cluster_resampled": True,
                     "task_subset_redrawn": method in {"random", "repo_stratified_random"},
+                    "random_budget_coupling": "nested_prefix",
                 })
 
     harmonized_lookup = {
@@ -671,14 +906,20 @@ def harmonized_curve_bootstrap(
         return result
 
     pointwise = common_budget("tau_b_q025")
-    simultaneous = common_budget("simultaneous_lower_band")
+    raw_cellwise = common_budget("raw_cellwise_lower_band")
+    cellwise_max_t = common_budget("cellwise_max_t_lower_band")
+    joint_max_t = common_budget("joint_max_t_lower_band")
     decision_rows = [{
         "method": method,
         "mean_tau_b_threshold": mean_threshold,
         "common_lower_bound_threshold": lower_threshold,
         "pointwise_common_reliable_budget": pointwise[method],
-        "simultaneous_band_common_reliable_budget": simultaneous[method],
+        "raw_cellwise_common_reliable_budget": raw_cellwise[method],
+        "cellwise_max_t_common_reliable_budget": cellwise_max_t[method],
+        "joint_max_t_common_reliable_budget": joint_max_t[method],
         "repetitions": repetitions,
+        "repetitions_per_seed": repetitions_per_seed,
+        "seed_count": len(seeds),
     } for method in methods]
 
     stability_rows = []
@@ -687,7 +928,7 @@ def harmonized_curve_bootstrap(
         persistent_counts = Counter()
         for repetition in range(repetitions):
             passing = {
-                budget: all(curves[(cell, method, repetition, budget)] >= mean_threshold for cell in cells)
+                budget: all(curves[(cell, method, budget)][repetition] >= mean_threshold for cell in cells)
                 for budget in budgets
             }
             first_counts[next((budget for budget in budgets if passing[budget]), "no_pass")] += 1
@@ -696,17 +937,127 @@ def harmonized_curve_bootstrap(
                 if all(passing[later] for later in budgets[index:])
             ), "no_pass")] += 1
         for budget in budgets + ["no_pass"]:
+            first_lower, first_upper = wilson_interval(first_counts[budget], repetitions)
+            persistent_lower, persistent_upper = wilson_interval(persistent_counts[budget], repetitions)
             stability_rows.append({
                 "method": method,
                 "selected_budget": budget,
                 "first_passing_count": first_counts[budget],
                 "first_passing_probability": first_counts[budget] / repetitions,
+                "first_passing_probability_ci_lower": first_lower,
+                "first_passing_probability_ci_upper": first_upper,
                 "persistent_rule_count": persistent_counts[budget],
                 "persistent_rule_probability": persistent_counts[budget] / repetitions,
+                "persistent_rule_probability_ci_lower": persistent_lower,
+                "persistent_rule_probability_ci_upper": persistent_upper,
                 "repetitions": repetitions,
                 "criterion": f"all four cells have tau_b >= {mean_threshold:.2f} in the same curve replicate",
             })
-    return output_rows, decision_rows, stability_rows
+
+    seed_stability_rows = []
+    diagnostic_budget = 475 if 475 in budgets else budgets[-2]
+    for seed_index, seed in enumerate(seeds):
+        start = seed_index * repetitions_per_seed
+        end = start + repetitions_per_seed
+        (
+            seed_values, _, seed_se, seed_exact, seed_raw, _, seed_joint, _,
+        ) = curve_summary(curves, start, end)
+        for method in methods:
+            def seed_common(lower_kind: str):
+                for budget in budgets:
+                    passes = True
+                    for cell in cells:
+                        point = point_lookup[(cell[0], cell[1], method, budget)]
+                        values = seed_values[(cell, method, budget)]
+                        if lower_kind == "pointwise":
+                            lower = core.quantile(values, 0.025)
+                        elif lower_kind == "raw":
+                            lower = point if seed_exact[(cell, method, budget)] else point + seed_raw[(cell, method)]
+                        else:
+                            lower = point if seed_exact[(cell, method, budget)] else point - seed_joint[method] * seed_se[(cell, method, budget)]
+                        if point < mean_threshold or lower < lower_threshold:
+                            passes = False
+                            break
+                    if passes:
+                        return budget
+                return None
+
+            first_475 = persistent_475 = 0
+            for repetition in range(repetitions_per_seed):
+                passing = {
+                    budget: all(seed_values[(cell, method, budget)][repetition] >= mean_threshold for cell in cells)
+                    for budget in budgets
+                }
+                first = next((budget for budget in budgets if passing[budget]), None)
+                persistent = next((
+                    budget for index, budget in enumerate(budgets)
+                    if all(passing[later] for later in budgets[index:])
+                ), None)
+                first_475 += first == 475
+                persistent_475 += persistent == 475
+            for cell in cells:
+                budget = diagnostic_budget
+                values = seed_values[(cell, method, budget)]
+                point = point_lookup[(cell[0], cell[1], method, budget)]
+                joint_lower = point if seed_exact[(cell, method, budget)] else point - seed_joint[method] * seed_se[(cell, method, budget)]
+                seed_stability_rows.append({
+                    "seed": seed,
+                    "panel": cell[0],
+                    "scope": cell[1],
+                    "method": method,
+                    "diagnostic_budget": budget,
+                    "pointwise_q025_at_diagnostic_budget": core.quantile(values, 0.025),
+                    "raw_cellwise_lower_at_diagnostic_budget": point if seed_exact[(cell, method, budget)] else point + seed_raw[(cell, method)],
+                    "joint_max_t_lower_at_diagnostic_budget": joint_lower,
+                    "pointwise_common_reliable_budget": seed_common("pointwise"),
+                    "raw_cellwise_common_reliable_budget": seed_common("raw"),
+                    "joint_max_t_common_reliable_budget": seed_common("joint"),
+                    "first_passing_475_probability": first_475 / repetitions_per_seed,
+                    "persistent_rule_475_probability": persistent_475 / repetitions_per_seed,
+                    "repetitions": repetitions_per_seed,
+                })
+
+    coupling_rows = []
+    if independent_curves:
+        for coupling, source in (
+            ("nested_prefix", {
+                key: values[:independent_repetitions] for key, values in curves.items()
+                if key[1] in {"random", "repo_stratified_random"}
+            }),
+            ("independent_by_budget", independent_curves),
+        ):
+            values, _, standard_errors, exact, _, _, joint, _ = curve_summary(source)
+            for method in ("random", "repo_stratified_random"):
+                pointwise_budget = joint_budget = None
+                for budget in budgets:
+                    pointwise_pass = all(
+                        point_lookup[(cell[0], cell[1], method, budget)] >= mean_threshold
+                        and core.quantile(values[(cell, method, budget)], 0.025) >= lower_threshold
+                        for cell in cells
+                    )
+                    joint_pass = all(
+                        point_lookup[(cell[0], cell[1], method, budget)] >= mean_threshold
+                        and (
+                            point_lookup[(cell[0], cell[1], method, budget)]
+                            if exact[(cell, method, budget)]
+                            else point_lookup[(cell[0], cell[1], method, budget)]
+                            - joint[method] * standard_errors[(cell, method, budget)]
+                        ) >= lower_threshold
+                        for cell in cells
+                    )
+                    if pointwise_budget is None and pointwise_pass:
+                        pointwise_budget = budget
+                    if joint_budget is None and joint_pass:
+                        joint_budget = budget
+                coupling_rows.append({
+                    "coupling": coupling,
+                    "method": method,
+                    "pointwise_common_reliable_budget": pointwise_budget,
+                    "joint_max_t_common_reliable_budget": joint_budget,
+                    "repetitions": independent_repetitions,
+                    "seed": seeds[0],
+                })
+    return output_rows, decision_rows, stability_rows, driver_rows, seed_stability_rows, coupling_rows
 
 
 def selection_scope_sensitivity(
@@ -989,6 +1340,17 @@ def validate_config(config: dict) -> None:
     ):
         if not isinstance(config.get(field), int) or config[field] <= 0:
             raise ValueError(f"{field} must be a positive integer")
+    seeds = config.get("harmonized_bootstrap_seeds")
+    if (
+        not isinstance(seeds, list)
+        or len(seeds) < 2
+        or any(not isinstance(seed, int) for seed in seeds)
+        or len(set(seeds)) != len(seeds)
+    ):
+        raise ValueError("harmonized_bootstrap_seeds must contain at least two unique integers")
+    independent_repetitions = config.get("independent_budget_coupling_repetitions", 0)
+    if not isinstance(independent_repetitions, int) or independent_repetitions < 0:
+        raise ValueError("independent_budget_coupling_repetitions must be a non-negative integer")
     if not 0 <= config.get("minimum_harmonized_tau_b_q025", -1) <= 1:
         raise ValueError("minimum_harmonized_tau_b_q025 must be between zero and one")
 
@@ -1224,7 +1586,7 @@ def write_report(output: pathlib.Path, payload: dict, metric_rows: list[dict], l
             f'<p>Task selection used only {record["train_year"]} outcomes; evaluation used {record["test_systems"]} systems from {record["test_year"]}. '
             f'The first reliable repository-stratified random budget was <strong>{decision["minimum_reliable_repo_stratified_budget"]} tasks</strong>. '
             f'After retaining only the latest system in each related family/provider cluster, it was <strong>{sensitivity["minimum_reliable_repo_stratified_budget"]} tasks</strong>. '
-            'Lines show mean held-out Kendall tau-b; the exact decision also requires the predeclared lower-bound threshold.</p>'
+            'Lines show mean held-out Kendall tau-b; the exact decision also requires the protocol-defined lower-bound threshold.</p>'
             f'{chart_svg(metric_rows, record["panel"])}'
             '<table><thead><tr><th>Method</th><th>Tasks</th><th>τ-b with interval</th><th>Top-k</th><th>Pairwise</th><th>MAE</th></tr></thead>'
             f'<tbody>{"".join(checkpoint_rows)}</tbody></table>'
@@ -1241,7 +1603,13 @@ def write_report(output: pathlib.Path, payload: dict, metric_rows: list[dict], l
     harmonized_rows = "".join(
         f'<tr><td>{html.escape(row["method"].replace("_", " "))}</td>'
         f'<td>{row["pointwise_common_reliable_budget"]}</td>'
-        f'<td>{row["simultaneous_band_common_reliable_budget"]}</td></tr>'
+        f'<td>{row["raw_cellwise_common_reliable_budget"]}</td>'
+        f'<td>{row["cellwise_max_t_common_reliable_budget"]}</td>'
+        f'<td>{row["joint_max_t_common_reliable_budget"]}</td></tr>'
+        for row in payload["harmonized_uncertainty_decisions"]
+    )
+    joint_budgets = ", ".join(
+        f'{row["method"].replace("_", " ")}: {row["joint_max_t_common_reliable_budget"]}'
         for row in payload["harmonized_uncertainty_decisions"]
     )
 
@@ -1255,18 +1623,18 @@ table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;ov
 </style></head><body><main><div class="eyebrow">Formal experiment</div><h1>Temporal discriminative power in SWE-bench Verified</h1>
 <p class="muted">Two non-pooled temporal panels: heterogeneous open submissions and a standardized mini-SWE-agent Bash-only environment.</p>
 <h2>Technical summary</h2>
-<p><strong>The original 150-task pilot conclusion does not generalize.</strong> Under the predeclared pointwise policy, uniform random, repository-stratified random, and entropy require {common["common_reliable_uniform_random_budget"]}, {common["common_reliable_repo_stratified_budget"]}, and {common["common_reliable_entropy_budget"]} tasks; temporal core requires {common["common_reliable_temporal_coreset_budget"]}. Under the harmonized simultaneous band all four require 500. The 16-cell positive control passed, and all included matrices reconciled to official scores.</p>
+<p><strong>The original 150-task pilot conclusion does not generalize.</strong> Under the protocol-defined pointwise thresholds, uniform random, repository-stratified random, and entropy require {common["common_reliable_uniform_random_budget"]}, {common["common_reliable_repo_stratified_budget"]}, and {common["common_reliable_entropy_budget"]} tasks; temporal core requires {common["common_reliable_temporal_coreset_budget"]}. The reviewer-motivated joint max-t robustness analysis returns {joint_budgets}. The 16-cell positive control passed, and all included matrices reconciled to official scores.</p>
 <div class="grid">{"".join(panel_cards)}</div>
-<div class="note"><strong>Interpretation boundary.</strong> The 2025 open-submission panel was inspected during the pilot and is developmental. The 2026 standardized panel was absent from the pilot and supplies the time-external replication. Submission dates do not identify exact harness versions.</div>
-<h2>Both panels became easier, but only the standardized panel clearly lost task entropy</h2>
+<div class="note"><strong>Interpretation boundary.</strong> The 2025 open-submission panel was inspected during the pilot and is developmental. The 2026 standardized panel was absent from the pilot and supplies a time-external validation panel. Submission dates do not identify exact harness versions.</div>
+<h2>Later cohorts achieved higher mean solve rates; only the standardized panel clearly lost task entropy</h2>
 <p>Mean task solve rate increased by {open_record["solve_rate_change"]:+.3f} in the open panel and {bash_record["solve_rate_change"]:+.3f} in the standardized panel. The open-panel entropy interval crosses zero; the standardized-panel entropy change is negative throughout its repository-bootstrap interval. These are descriptive temporal shifts, not causal effects.</p>
 <table><thead><tr><th>Panel</th><th>Years</th><th>Systems</th><th>Solve-rate change</th><th>Entropy change</th><th>Near-saturated tasks</th></tr></thead><tbody>{"".join(longitudinal_rows)}</tbody></table>
 <h2>Reduced task budgets are panel-dependent</h2>
-<p>The charts compare four selectors at the same 13 predeclared budgets. Ranking fidelity alone is insufficient: a budget is called reliable only when its mean and lower uncertainty bound both cross the protocol thresholds.</p>
+<p>The charts compare four selectors at the same 13 protocol-specified budgets. Ranking fidelity alone is insufficient: a budget is called reliable only when its mean and lower uncertainty bound both cross the protocol thresholds.</p>
 {"".join(sections)}
 <h2>Scope, definitions, and experimental design</h2><p>The unit of analysis is a public system-task outcome on the canonical 500 SWE-bench Verified instances. The open-submission panel selects tasks from 2024 and evaluates 2025; the standardized Bash-only panel selects from 2025 and evaluates 2026. Kendall’s τ-b compares each reduced-task system ordering with the full 500-task ordering. The top-k diagnostic includes every boundary tie and reports Jaccard overlap.</p>
 <h2>Data quality, uncertainty, and robustness</h2><p>All included task matrices reconcile to official aggregate scores. The original intervals separately describe task-selection or system-cluster variation. The harmonized curve bootstrap resamples held-out system clusters for every procedure and additionally redraws tasks for stochastic procedures. The 500-task endpoint is a mandatory 16-cell positive control.</p>
-<h3>Harmonized uncertainty</h3><table><thead><tr><th>Procedure</th><th>Pointwise tasks</th><th>Simultaneous-band tasks</th></tr></thead><tbody>{harmonized_rows}</tbody></table>
+<h3>Harmonized uncertainty</h3><table><thead><tr><th>Procedure</th><th>Pointwise tasks</th><th>Raw cell-wise tasks</th><th>Cell-wise max-t tasks</th><th>Joint max-t tasks</th></tr></thead><tbody>{harmonized_rows}</tbody></table>
 <h3>Reliability-threshold sensitivity</h3><p>The robust budget is recomputed across both panels and both dependence scopes under lenient, primary, and strict threshold policies. This separates a genuine selector result from an artifact of the primary cutoff.</p><table><thead><tr><th>Policy</th><th>Method</th><th>Mean τ-b threshold</th><th>Robust tasks</th><th>Task reduction</th></tr></thead><tbody>{threshold_rows}</tbody></table>
 <h2>Limitations and next study decision</h2><p>Submission dates do not identify exact harness versions, public systems are selected and correlated, cluster definitions are approximate, and most public results do not measure run-to-run model variance. A common procedure budget does not identify one fixed task set. Therefore the result supports benchmark-maintenance claims only—not causal claims about model progress or a permanent 475-task subset.</p>
 <h2>Further questions</h2><p>Does entropy selection remain stable under future standardized submissions, and can a selector trained across multiple frozen historical windows outperform the simple entropy baseline without approaching the full 500-task cost?</p>
@@ -1368,7 +1736,10 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         for method, key in method_keys.items()
     }
     threshold_rows = threshold_sensitivity(metric_rows, config["panels"], config["threshold_policies"])
-    harmonized_rows, harmonized_decisions, budget_stability = harmonized_curve_bootstrap(
+    (
+        harmonized_rows, harmonized_decisions, budget_stability, curve_band_diagnostics,
+        curve_bootstrap_stability, coupling_sensitivity,
+    ) = harmonized_curve_bootstrap(
         config["panels"], sources, instance_ids, metric_rows, config
     )
     selection_overlap, fixed_selection = selection_scope_sensitivity(
@@ -1439,6 +1810,24 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
     ]
     write_csv(output / "formal_metrics.csv", metric_rows, metric_fields)
     write_csv(
+        output / "secondary_metrics_online_resource.csv",
+        metric_rows,
+        [
+            "panel", "scope", "method", "budget", "tau_b", "top_k_overlap",
+            "full_top_k_set_size", "subset_top_k_set_size", "pairwise_direction_agreement",
+            "calibrated_score_mae", "repository_coverage", "baseline_percentile",
+        ],
+    )
+    (output / "analysis_history.md").write_text(
+        "# Analysis history\n\n"
+        "- A pilot inspected the 2025 open-submission outcomes.\n"
+        "- The formal protocol and thresholds were committed on 2026-08-24 before the final two-panel rerun.\n"
+        "- On 2026-08-26, a non-monotonicity defect was found in the common-budget aggregation; the rule was corrected to test every required cell at each exact budget.\n"
+        "- Harmonized resampling, raw-deviation bands, standardized max-t bands, and random-curve coupling analyses were added after review as post hoc robustness analyses.\n"
+        "- The study had no external registration.\n",
+        encoding="utf-8",
+    )
+    write_csv(
         output / "threshold_sensitivity.csv",
         threshold_rows,
         [
@@ -1456,8 +1845,10 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         harmonized_rows,
         [
             "panel", "scope", "method", "budget", "tau_b", "tau_b_bootstrap_mean",
-            "tau_b_q025", "tau_b_q975", "simultaneous_lower_band", "repetitions",
-            "system_cluster_resampled", "task_subset_redrawn",
+            "tau_b_bootstrap_sd", "tau_b_q025", "tau_b_q975", "raw_cellwise_lower_band",
+            "cellwise_max_t_lower_band", "joint_max_t_lower_band", "repetitions",
+            "repetitions_per_seed", "seed_count", "system_cluster_resampled",
+            "task_subset_redrawn", "random_budget_coupling",
         ],
     )
     write_csv(
@@ -1465,7 +1856,9 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         harmonized_decisions,
         [
             "method", "mean_tau_b_threshold", "common_lower_bound_threshold",
-            "pointwise_common_reliable_budget", "simultaneous_band_common_reliable_budget", "repetitions",
+            "pointwise_common_reliable_budget", "raw_cellwise_common_reliable_budget",
+            "cellwise_max_t_common_reliable_budget", "joint_max_t_common_reliable_budget",
+            "repetitions", "repetitions_per_seed", "seed_count",
         ],
     )
     write_csv(
@@ -1473,7 +1866,37 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         budget_stability,
         [
             "method", "selected_budget", "first_passing_count", "first_passing_probability",
-            "persistent_rule_count", "persistent_rule_probability", "repetitions", "criterion",
+            "first_passing_probability_ci_lower", "first_passing_probability_ci_upper",
+            "persistent_rule_count", "persistent_rule_probability",
+            "persistent_rule_probability_ci_lower", "persistent_rule_probability_ci_upper",
+            "repetitions", "criterion",
+        ],
+    )
+    write_csv(
+        output / "curve_band_diagnostics.csv",
+        curve_band_diagnostics,
+        [
+            "band", "panel", "scope", "method", "budget", "driver_count",
+            "driver_probability", "critical_value",
+        ],
+    )
+    write_csv(
+        output / "curve_bootstrap_stability.csv",
+        curve_bootstrap_stability,
+        [
+            "seed", "panel", "scope", "method", "diagnostic_budget",
+            "pointwise_q025_at_diagnostic_budget", "raw_cellwise_lower_at_diagnostic_budget",
+            "joint_max_t_lower_at_diagnostic_budget", "pointwise_common_reliable_budget",
+            "raw_cellwise_common_reliable_budget", "joint_max_t_common_reliable_budget",
+            "first_passing_475_probability", "persistent_rule_475_probability", "repetitions",
+        ],
+    )
+    write_csv(
+        output / "random_curve_coupling_sensitivity.csv",
+        coupling_sensitivity,
+        [
+            "coupling", "method", "pointwise_common_reliable_budget",
+            "joint_max_t_common_reliable_budget", "repetitions", "seed",
         ],
     )
     write_csv(
@@ -1577,14 +2000,17 @@ def run(config_path: pathlib.Path, output: pathlib.Path):
         "",
     ])
     summary_lines.extend(
-        f"- {row['method']}: pointwise {row['pointwise_common_reliable_budget']} tasks; simultaneous band {row['simultaneous_band_common_reliable_budget']} tasks."
+        f"- {row['method']}: pointwise {row['pointwise_common_reliable_budget']} tasks; "
+        f"raw cell-wise band {row['raw_cellwise_common_reliable_budget']} tasks; "
+        f"cell-wise max-t {row['cellwise_max_t_common_reliable_budget']} tasks; "
+        f"joint max-t {row['joint_max_t_common_reliable_budget']} tasks."
         for row in harmonized_decisions
     )
     summary_lines.extend([
         "",
         f"The 500-task positive control passed all {positive_control['observed_rows']} expected panel-scope-method cells.",
         "",
-        "The open-submission comparison is developmental because its 2025 outcomes were inspected in the pilot. The 2026 standardized panel is the time-external replication. Neither comparison is causal.",
+        "The open-submission comparison is developmental because its 2025 outcomes were inspected in the pilot. The 2026 standardized panel is a time-external validation panel. Neither comparison is causal.",
     ])
     (output / "summary.md").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
     write_report(output, payload, metric_rows, longitudinal)

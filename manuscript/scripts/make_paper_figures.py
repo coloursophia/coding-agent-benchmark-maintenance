@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ARTIFACT = ROOT / "formal-output-v2-local"
+ARTIFACT = ROOT / "artifacts" / "formal-v3-local-r3"
 OUTPUT = ROOT / "manuscript" / "figures"
 
 INK = "#20262E"

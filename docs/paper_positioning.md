@@ -162,6 +162,6 @@ The paper may not claim:
 3. Position UTBoost and the ICSE-SEIP ecosystem audit as complementary validity
    threats and neighboring work, not baselines.
 4. Make the 2025 open panel a development replication and the 2026 Bash-only
-   panel the time-external replication.
+   panel a time-external validation panel.
 5. Keep the repository artifact, source manifests, exclusions, and cloud run
    link in the replication package.

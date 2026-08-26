@@ -66,6 +66,8 @@ class FormalStudyTests(unittest.TestCase):
             "repository_bootstrap_repetitions": 10,
             "two_way_bootstrap_repetitions": 10,
             "harmonized_bootstrap_repetitions": 10,
+            "harmonized_bootstrap_seeds": [11, 29],
+            "independent_budget_coupling_repetitions": 10,
             "minimum_harmonized_tau_b_q025": 0.80,
             "threshold_policies": [{
                 "name": "primary",
@@ -74,6 +76,82 @@ class FormalStudyTests(unittest.TestCase):
                 "minimum_deterministic_tau_b_q025": 0.80,
             }],
         })
+
+    def test_nested_random_paths_are_exact_and_nested(self):
+        task_ids = [f"repo{index % 4}__task-{index}" for index in range(20)]
+        budgets = [3, 7, 13, 20]
+        uniform = formal.nested_uniform_subsets(20, budgets, formal.random.Random(17))
+        stratified = formal.nested_repository_subsets(task_ids, budgets, formal.random.Random(17))
+        for path in (uniform, stratified):
+            for budget in budgets:
+                self.assertEqual(len(path[budget]), budget)
+            for smaller, larger in zip(budgets, budgets[1:]):
+                self.assertTrue(set(path[smaller]) < set(path[larger]))
+            self.assertEqual(set(path[20]), set(range(20)))
+
+    def test_wilson_interval_contains_observed_proportion(self):
+        lower, upper = formal.wilson_interval(60, 100)
+        self.assertLess(lower, 0.60)
+        self.assertGreater(upper, 0.60)
+
+    def test_harmonized_curve_bootstrap_integrates_four_cells(self):
+        instance_ids = [f"repo{index % 2}__task-{index}" for index in range(6)]
+        panels = []
+        sources = {}
+        for panel_index, panel_name in enumerate(("p1", "p2")):
+            source_name = f"source-{panel_name}"
+            cluster_field = "family"
+            panels.append({
+                "name": panel_name,
+                "source": source_name,
+                "train_year": 2024,
+                "test_year": 2025,
+                "cluster_field": cluster_field,
+            })
+            rows = []
+            for year in (2024, 2025):
+                for system_index in range(4):
+                    rows.append({
+                        "name": f"{panel_name}-{year}-{system_index}",
+                        "date": f"{year}-0{1 + system_index}-01",
+                        "year": year,
+                        cluster_field: f"c{system_index % 2}",
+                        "outcomes": [
+                            int((task_index + system_index + year + panel_index) % 3 != 0)
+                            for task_index in range(6)
+                        ],
+                    })
+            sources[source_name] = rows
+        budgets = [2, 6]
+        metric_rows = []
+        for panel in panels:
+            for scope in ("all_systems", "cluster_latest"):
+                for method in ("random", "repo_stratified_random", "entropy", "temporal_coreset"):
+                    for budget in budgets:
+                        metric_rows.append({
+                            "panel": panel["name"], "scope": scope, "method": method,
+                            "budget": budget, "tau_b": 1.0 if budget == 6 else 0.5,
+                        })
+        config = {
+            "task_budgets": budgets,
+            "harmonized_bootstrap_repetitions": 3,
+            "harmonized_bootstrap_seeds": [11, 29],
+            "independent_budget_coupling_repetitions": 3,
+            "minimum_mean_tau_b": 0.90,
+            "minimum_harmonized_tau_b_q025": 0.80,
+        }
+        rows, decisions, stability, drivers, seed_rows, coupling = formal.harmonized_curve_bootstrap(
+            panels, sources, instance_ids, metric_rows, config
+        )
+        self.assertEqual(len(rows), 2 * 2 * 4 * 2)
+        self.assertEqual(len(decisions), 4)
+        self.assertTrue(all(row["joint_max_t_common_reliable_budget"] == 6 for row in decisions))
+        self.assertTrue(stability and seed_rows and coupling)
+        self.assertIsInstance(drivers, list)
+        endpoints = [row for row in rows if row["budget"] == 6]
+        self.assertTrue(all(row["joint_max_t_lower_band"] == 1.0 for row in endpoints))
+        self.assertTrue(all(row["raw_cellwise_lower_band"] == 1.0 for row in endpoints))
+        self.assertTrue(all(row["tau_b_q025"] == 1.0 for row in endpoints))
 
     def test_positive_control_is_exact_and_complete(self):
         rows = []

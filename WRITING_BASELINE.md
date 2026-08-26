@@ -665,3 +665,9 @@ reductions that appear adequate in a developmental panel can fail under later
 systems and dependence-aware analysis. In the observed evidence, both simple
 entropy selection and random sampling require the full 500-task benchmark
 under the primary and strict policies.
+# Historical writing baseline (superseded)
+
+This file records the pre-v3 design and writing state. It is retained for
+analysis-history transparency and must not be used as the source of current
+numerical claims. The artifact-backed manuscript and formal configuration are
+authoritative.

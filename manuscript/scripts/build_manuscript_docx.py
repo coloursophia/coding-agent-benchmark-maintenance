@@ -15,7 +15,7 @@ from docx.shared import Inches, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_manuscript.md"
-OUTPUT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_draft_v2.0.docx"
+OUTPUT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_draft_v3.0.docx"
 
 BLUE = "2E74B5"
 DARK_BLUE = "1F4D78"
@@ -274,13 +274,17 @@ def configure_sections(doc):
 
 
 def add_inline(paragraph, text):
-    token_re = re.compile(r"(https?://\S+|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)")
+    token_re = re.compile(r"(τ_b|https?://\S+|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)")
     pos = 0
     for match in token_re.finditer(text):
         if match.start() > pos:
             paragraph.add_run(text[pos:match.start()])
         token = match.group(0)
-        if token.startswith("**"):
+        if token == "τ_b":
+            paragraph.add_run("τ")
+            run = paragraph.add_run("b")
+            run.font.subscript = True
+        elif token.startswith("**"):
             run = paragraph.add_run(token[2:-2])
             run.bold = True
         elif token.startswith("*"):
@@ -478,7 +482,7 @@ def build():
             p = doc.add_paragraph(style="Normal")
             p.paragraph_format.left_indent = Inches(0.28)
             p.paragraph_format.first_line_indent = Inches(-0.20)
-            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.space_after = Pt(5)
             p.add_run(f"{number}. ")
             add_inline(p, text)
             continue
@@ -511,7 +515,7 @@ def build():
     props.title = "Limits of Task-Set Reduction in SWE-bench Verified: A Temporal Study of Leaderboard Ranking Reliability"
     props.subject = "Temporal ranking reliability of reduced coding-agent benchmark task sets"
     props.author = "Anonymous"
-    props.keywords = "SWE-bench Verified; coding agents; leaderboard reliability; temporal validation"
+    props.keywords = "coding agents; benchmark reduction; leaderboard reliability; SWE-bench Verified; temporal validation; ranking uncertainty"
     props.comments = "Temporal ranking-reliability study"
     doc.save(OUTPUT)
     print(OUTPUT)

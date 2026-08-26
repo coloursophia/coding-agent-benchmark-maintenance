@@ -1,8 +1,9 @@
 # Maintaining Discriminative Power in Coding-Agent Benchmarks
 
-Manuscript writers should start from [`WRITING_BASELINE.md`](WRITING_BASELINE.md),
-which locks the final title, paper direction, experiment protocol, numerical
-results, claim boundaries, and reproducibility links.
+Manuscript writers should start from
+[`manuscript/Limits_of_Task_Set_Reduction_manuscript.md`](manuscript/Limits_of_Task_Set_Reduction_manuscript.md).
+[`WRITING_BASELINE.md`](WRITING_BASELINE.md) is retained only as design history
+and does not supersede the current artifact-backed results.
 
 This repository contains a fully automated, zero-API-cost empirical study of
 how the discriminative power of SWE-bench Verified changes over time and how
@@ -33,7 +34,7 @@ The paper-facing experiment keeps two evaluation environments separate:
   explicit 500-task outcomes from the common mini-SWE-agent environment.
 
 The 2026 panel was not read by the pilot and therefore supplies the strongest
-time-external replication. See [`docs/formal_protocol.md`](docs/formal_protocol.md)
+time-external validation panel. See [`docs/formal_protocol.md`](docs/formal_protocol.md)
 for inclusion rules, dependence controls, uncertainty estimators, and claim
 boundaries. The rejected alternatives, target-journal fit, title vocabulary,
 and paper-facing claim limits are documented in
@@ -48,8 +49,12 @@ and paper-facing claim limits are documented in
   475, and the 500-task positive control.
 - Primary metric: Kendall's tau-b between full-benchmark and subset rankings on
   held-out submissions.
-- Secondary metrics: top-10 overlap, pairwise direction agreement, calibrated
-  score MAE, repository coverage, and bootstrap/random-baseline intervals.
+- Secondary metrics: tie-aware top-k Jaccard, pairwise direction agreement,
+  calibrated score MAE, repository coverage, and bootstrap/random-baseline
+  intervals.
+- Reviewer-motivated robustness: 10,000 pooled curve-bootstrap replicates from
+  five seeds, nested random budget paths, raw cell-wise and standardized max-t
+  bands, and a joint four-cell decision-family band.
 
 The temporal split is deliberate: a random submission split would leak later
 system behavior into task selection and would not test whether a core set

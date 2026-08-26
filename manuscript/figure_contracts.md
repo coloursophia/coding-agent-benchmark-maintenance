@@ -4,7 +4,7 @@
 
 - **Question:** How did task solve rates and task entropy change from the
   training period to the held-out period in each panel?
-- **Takeaway:** Both panels became easier on average; entropy declined clearly
+- **Takeaway:** Later cohorts had higher mean solve rates; entropy declined clearly
   only in the standardized Bash-only panel.
 - **Family/variant:** Uncertainty and benchmark; paired horizontal interval
   plots on a shared change scale.
@@ -42,7 +42,7 @@
   primary reliability policy for each method?
 - **Takeaway:** Uniform random, repository-stratified random, and entropy first
   reach 4/4 only at 500 tasks; the temporal core procedure reaches 4/4 at 475
-  under the predeclared pointwise policy.
+  under the protocol-defined pointwise policy.
 - **Family/variant:** Matrix; annotated heatmap of pass counts.
 - **Data:** Four methods x 13 budgets, derived from `formal_metrics.csv` using
   the primary method-specific lower-bound rules.

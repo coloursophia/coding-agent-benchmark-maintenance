@@ -15,7 +15,7 @@ from docx.shared import Inches, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_manuscript.md"
-OUTPUT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_draft_v3.1.docx"
+OUTPUT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_draft_v3.2.docx"
 
 BLUE = "2E74B5"
 DARK_BLUE = "1F4D78"
@@ -249,14 +249,10 @@ def configure_sections(doc):
     section.footer_distance = Inches(0.492)
     section.different_first_page_header_footer = True
 
+    # The writing-stage manuscript has no running header. This avoids the
+    # alternating-page appearance produced by some Word/LibreOffice exports.
     header = section.header
-    p = header.paragraphs[0]
-    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    p.paragraph_format.space_after = Pt(0)
-    r = p.add_run("Limits of Task-Set Reduction in SWE-bench Verified")
-    set_font(r, size=8.5, color=MUTED, bold=True)
-    r = p.add_run("  |  Manuscript")
-    set_font(r, size=8.5, color=MUTED)
+    header.paragraphs[0].text = ""
 
     footer = section.footer
     p = footer.paragraphs[0]
@@ -266,11 +262,7 @@ def configure_sections(doc):
     set_font(r, size=8.5, color=MUTED)
     add_page_field(p)
 
-    first_footer = section.first_page_footer
-    p = first_footer.paragraphs[0]
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run("Manuscript for internal review")
-    set_font(r, size=8.5, color=MUTED)
+    section.first_page_footer.paragraphs[0].text = ""
 
 
 def add_inline(paragraph, text):
@@ -327,12 +319,12 @@ def add_cover(doc):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_after = Pt(6)
-    r = p.add_run("Anonymous manuscript for review")
+    r = p.add_run("Manuscript")
     set_font(r, size=11, color=INK, bold=True)
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_after = Pt(34)
-    r = p.add_run("Target journal: Empirical Software Engineering")
+    r = p.add_run("Prepared for Empirical Software Engineering")
     set_font(r, size=10.5, color=MUTED, italic=True)
 
     doc.add_page_break()
@@ -390,7 +382,11 @@ def add_image(doc, rel_path, alt_text):
     p.paragraph_format.space_before = Pt(2)
     p.paragraph_format.space_after = Pt(8)
     run = p.add_run()
-    shape = run.add_picture(str(path), width=Inches(6.35))
+    # The two full-height fidelity panels remain readable at 5.35 inches and
+    # can then share a page with the preceding explanation, avoiding an almost
+    # empty page before Fig. 2. Other figures retain the established width.
+    width = 5.35 if path.name.startswith("figure2") else 6.35
+    shape = run.add_picture(str(path), width=Inches(width))
     doc_pr = shape._inline.docPr
     doc_pr.set("descr", alt_text)
     return p

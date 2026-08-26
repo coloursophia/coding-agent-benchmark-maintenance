@@ -57,6 +57,8 @@ and paper-facing claim limits are documented in
   bands, and a joint four-cell decision-family band.
 - Submission supplement: `manuscript/Online_Resource_1_secondary_metrics.csv`
   contains the complete 208-row secondary-metric table.
+- Reproduction manifest: `manuscript/Online_Resource_2_reproduction_manifest.md`
+- Claim-citation audit: `manuscript/CLAIM_CITATION_AUDIT.md`
 
 The temporal split is deliberate: a random submission split would leak later
 system behavior into task selection and would not test whether a core set

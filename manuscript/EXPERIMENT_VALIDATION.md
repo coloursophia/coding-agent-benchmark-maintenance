@@ -1,4 +1,4 @@
-# V3 experiment validation and v3.1 manuscript linkage
+# V3 experiment validation and v3.2 manuscript linkage
 
 **Assessment:** The corrected v3 formal run is internally consistent and was
 independently reproduced by the successful GitHub Actions execution. Public
@@ -11,10 +11,18 @@ archival availability remains to be completed.
 - GitHub Actions run: `32970788181` (successful; 23 min 38 s).
 - Experiment commit: `4bcbd4a2cd259f9722e1fa3eb83fa1e03b79df75`.
 - Downloaded artifact: `artifacts/github-run-32970788181/unpacked`.
-- Manuscript: `manuscript/Limits_of_Task_Set_Reduction_EMSE_draft_v3.1.docx`.
+- Manuscript: `manuscript/Limits_of_Task_Set_Reduction_EMSE_draft_v3.2.docx`.
+- Manuscript DOCX SHA-256:
+  `fa7a5eb284e756effba75e169aef4145e371f536b24f6cc958274e942a70c693`.
+- Rendered PDF: `manuscript/Limits_of_Task_Set_Reduction_EMSE_draft_v3.2.pdf`.
+- Rendered PDF SHA-256:
+  `3dd2963238bde8c91b560f04865abcd90c93f8975aef9b071066a6a71b13bcb0`.
 - Submission supplement: `manuscript/Online_Resource_1_secondary_metrics.csv`
   (byte-identical to the official artifact's
   `secondary_metrics_online_resource.csv`).
+- Reproduction supplement:
+  `manuscript/Online_Resource_2_reproduction_manifest.md`.
+- Claim-citation audit: `manuscript/CLAIM_CITATION_AUDIT.md`.
 - Artifact ZIP SHA-256:
   `c66da9edd849c36335fb15a687331d2058cb8c900c29264d38b2d06b2070c334`.
 - Experiments source commit: recorded in `source_manifest.json`.
@@ -61,6 +69,12 @@ full-task endpoint at 1 inside every replicate, including degenerate cluster
 draws with no comparable system pair. Twenty-one unit and integration tests
 pass.
 
+The v3.2 DOCX was rendered with LibreOffice to a 29-page PDF and every page was
+inspected. No text, table, figure, caption, or reference entry was clipped or
+overlapped. The DOCX accessibility audit reports zero high-, medium-, or
+low-severity findings; it contains 11 tables, four inline figures, no comments,
+and no tracked insertions or deletions.
+
 ## Decision checks
 
 The protocol-defined mixed-source pointwise policy gives common reliable
@@ -94,4 +108,5 @@ fixed-draw rows are omitted because they do not estimate a random procedure.
   metadata-derived approximations.
 - The replication bundle has no public immutable release or DOI yet.
 - Author metadata, funding, competing-interest, originality, and contribution
-  declarations require author confirmation before journal submission.
+  declarations remain submission-stage materials and were not fabricated in
+  the writing-stage manuscript.

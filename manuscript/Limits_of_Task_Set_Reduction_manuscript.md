@@ -1,6 +1,6 @@
 # Limits of Task-Set Reduction in SWE-bench Verified: A Temporal Study of Leaderboard Ranking Reliability
 
-Anonymous manuscript for review
+Manuscript
 
 Target journal: *Empirical Software Engineering*
 
@@ -14,7 +14,7 @@ and standardized Bash-only submissions from 2025 to 2026 (27 and 11 systems).
 Earlier outcomes select tasks at 13 budgets using uniform random,
 repository-stratified random, entropy, and a frozen temporal core-set
 procedure. We measure held-out fidelity with Kendall’s τ_b, a tie-aware top-k
-Jaccard diagnostic, and all-system and latest-per-related-cluster scopes. A
+Jaccard diagnostic, and the all-systems and cluster-latest scopes. A
 harmonized curve bootstrap resamples held-out system clusters for every method
 and redraws tasks for stochastic procedures. Later cohorts had
 higher mean solve rates; entropy declined clearly only in the standardized
@@ -48,21 +48,26 @@ and execution conventions.
 
 Executing fewer tasks is an appealing way to reduce evaluation burden. The
 idea resembles test-suite reduction: retain a smaller set that preserves the
-property needed by the user (Yoo and Harman 2012). For a leaderboard, however, the relevant
-property is not merely task coverage or fault detection. A reduced set must
-preserve comparative conclusions among systems. A subset that reproduces the
-current ranking can still fail when stronger or differently structured systems
-arrive. It can also appear reliable when a leaderboard contains many closely
-related variants of the same agent or model provider.
+property needed by the user (Harrold et al. 1993; Yoo and Harman 2012). For a
+leaderboard, however, the relevant property is not merely task coverage or
+fault detection. A reduced set must preserve comparative conclusions among
+systems. Benchmark-task choice alone can alter the relative performance of
+methods (Dehghani et al. 2021), so agreement on the systems already observed is
+not enough evidence that the same subset will rank later systems reliably. A
+subset can also appear stable when a leaderboard contains many closely related
+variants of the same agent or model provider.
 
 This creates a temporal measurement problem. Suppose task outcomes from an
 earlier period are used to choose a subset. The subset is then applied to later
 systems, and its induced ranking is compared with the ranking produced by all
 500 tasks. The key question is not whether one can fit the observed
 leaderboard, but whether the compressed measurement transfers forward. This
-distinction matters because benchmarks, tools, and experimental subjects evolve
-(Golmohammadi et al. 2026), and because out-of-sample validation and transparent reporting remain
-uneven in empirical software engineering (Destefanis et al. 2026).
+distinction matters because data-generating processes can drift over time
+(Gama et al. 2014), because software tools and benchmark configurations evolve
+(Golmohammadi et al. 2026), and because benchmark conclusions can depend on
+uncontrolled sources of variation (Bouthillier et al. 2021). Out-of-sample
+validation and transparent reporting also remain uneven in empirical software
+engineering (Destefanis et al. 2026).
 
 The need for maintenance has become more explicit since the data snapshot used
 in this study. In February 2026, OpenAI reported that SWE-bench Verified no
@@ -97,102 +102,153 @@ The practical implication is procedural rather than algorithmic. A task subset
 should be versioned and revalidated as a benchmark population changes. The
 validation must use future systems where possible, account for related
 submissions, and avoid monotonicity assumptions that the observed fidelity
-curves do not support.
+curves do not support. This maintenance stance is consistent with broader
+calls to document dataset lineage and to treat benchmark design as an ongoing
+measurement responsibility rather than a one-time release (Paullada et al.
+2021; Raji et al. 2021).
 
 ## 2 Background and Related Work
 
-### 2.1 Coding-agent benchmarks and SWE-bench Verified
+### 2.1 Coding-agent benchmarks, task validity, and maintenance
 
 SWE-bench evaluates whether a model or agent can modify a real repository to
-resolve a GitHub issue (Jimenez et al. 2024). The original benchmark contained 2,294 problems
-across 12 Python repositories. SWE-bench Verified was built after professional
-developers reviewed 1,699 tasks; 500 were selected as a human-validated subset
-(OpenAI 2024). The public ecosystem subsequently became a central comparison point for
-coding agents.
+resolve a GitHub issue (Jimenez et al. 2024). The original benchmark contained
+2,294 problems across 12 Python repositories. SWE-bench Verified was built
+after professional developers reviewed 1,699 tasks; 500 were selected as a
+human-validated subset (OpenAI 2024). These sources establish the benchmark's
+construction; they do not establish that every task remains valid indefinitely.
 
-That ecosystem is heterogeneous. Martinez and Franch (2026) document
-substantial heterogeneity in the participants, products, model choices, and
-openness of SWE-bench leaderboard entries. We therefore do not treat
-leaderboard rows as interchangeable independent systems. Our panel design
-responds by separating the open-submission and
-standardized Bash-only formats and by adding related-system sensitivity rather
-than pooling every row into one analysis.
+Subsequent studies identify distinct validity risks. SWE-Bench+ reports
+solution leakage, weak tests, and contamination concerns (Aleithan et al.
+2024). UTBoost augments tests, identifies patches that had been incorrectly
+accepted, and shows that corrected outcomes can change leaderboard positions
+(Yu et al. 2025). OpenAI's later audit reports residual test-design problems
+and evidence of contamination among frontier models (OpenAI 2026). These works
+concern whether recorded task outcomes measure the intended capability. Our
+study assumes a frozen, quality-checked outcome matrix and asks a different
+question: whether selecting fewer columns preserves the full-matrix ordering
+of later systems. Perfect subset fidelity would not validate a flawed task,
+and a corrected task suite could still be too small to preserve rankings.
 
-The current status of SWE-bench Verified also limits how results should be
-read. OpenAI's 2026 audit reports residual test-design problems and evidence of
-contamination among frontier models (OpenAI 2026). Consequently, we do not claim that a
-preserved historical SWE-bench Verified ranking measures current real-world
-software engineering capability. The benchmark is the bounded empirical case
-through which we study a general maintenance problem.
+The submission ecosystem is also heterogeneous. Martinez and Franch (2026)
+document substantial variation in participants, products, model choices, and
+openness among SWE-bench leaderboard entries. We therefore do not treat
+leaderboard rows as interchangeable independent systems. The open-submission
+and standardized Bash-only formats are analyzed separately, and related-system
+sensitivity is reported rather than pooling every row into one analysis.
 
-### 2.2 Task validity and ranking correction
+### 2.2 Test-suite reduction and benchmark compression
 
-Benchmark ranking can change when task outcomes are corrected. SWE-Bench+
-reports solution leakage, weak tests, and contamination risks (Aleithan et al. 2024). UTBoost
-augments tests and identifies patches that had been incorrectly accepted;
-those corrections change several SWE-bench leaderboard positions (Yu et al. 2025). These
-studies address the validity of individual task judgments and are therefore
-complementary to our work.
+Software-testing research distinguishes test-suite minimization, regression
+test selection, and test-case prioritization (Yoo and Harman 2012). Early
+minimization work sought a representative subset that retained specified test
+requirements (Harrold et al. 1993), while prioritization studies evaluated
+whether ordering could improve the rate of fault detection (Elbaum et al.
+2002). These objectives are property-specific: a smaller suite is defensible
+only relative to the coverage, change relevance, or fault-detection property
+that it preserves. Microbenchmark prioritization likewise shows that benefits
+and overhead vary across suites and parameterizations (Laaber et al. 2021).
 
-Our input is a frozen binary system-by-task outcome matrix after source-level
-quality checks. Given that matrix, we ask whether columns selected from an
-earlier system cohort preserve the full-column ranking of a later cohort.
-Perfect subset fidelity would not prove that any underlying task is valid.
-Conversely, a corrected task suite could still be too small to preserve later
-rankings. Task correctness and subset fidelity are separate layers of
-measurement validity.
+Benchmark compression replaces testing requirements with evaluation
+requirements. Dehghani et al. (2021) show that changing benchmark tasks can
+alter the relative performance of machine-learning methods. Gusev and Zaytsev
+(2026) directly optimize dataset selection for model-rank preservation and
+show that gains over random selection depend on the benchmark regime and task
+representation. EssenceBench combines redundancy analysis, score
+reconstruction, and subset search for language-model evaluation and reports
+large reductions on several natural-language benchmarks (Wang et al. 2025).
+Our estimand is narrower than general compression: a selection procedure must
+transfer from earlier coding-agent systems to later ones, under two dependence
+scopes, while retaining a 500-task positive control. We do not propose a
+generally superior selector.
 
-### 2.3 Benchmark and tool evolution
+### 2.3 Ranking preservation and leaderboard reliability
 
-Empirical results can age as tools, configurations, and benchmark populations
-change. Golmohammadi et al. (2026) show that parameter-tuning conclusions in
-search-based software engineering can require periodic re-evaluation as a tool
-evolves. The same logic applies to task selection: a subset optimized on an
-earlier cohort may no longer distinguish later systems.
+Leaderboard reliability is not exhausted by a point estimate. Benchmark
+comparisons can change when data sampling, initialization, and hyperparameter
+choices are incorporated into the uncertainty analysis (Bouthillier et al.
+2021). Model-comparison work similarly argues for comparing performance
+distributions rather than isolated scores (Dror et al. 2019). These findings
+motivate reporting task-selection and held-out-system uncertainty separately
+before adding a harmonized sensitivity.
 
-The methodological literature also cautions against weak out-of-sample
-validation and opaque analysis choices. Destefanis et al. (2026) audit machine-
-learning experiments in software defect prediction and emphasize design,
-analysis, reporting, and reproducibility. Baltes and Ralph (2022) show that
-sampling and representativeness are frequently misunderstood in software
-engineering research. Our response is a frozen time-forward design, explicit
-source provenance, repeated sampling, clustered sensitivity, and a decision
-rule fixed independently of the observed winning budget.
+Rank correlation is appropriate when the target is comparative order rather
+than absolute score. Kendall's τ_b explicitly handles tied ranks (Kendall
+1945), which are common when systems resolve the same number of tasks. We
+supplement τ_b with a tie-inclusive top-k Jaccard diagnostic, pairwise direction
+agreement, calibrated score error, and repository coverage. The top-k measure
+is a decision diagnostic, not a replacement for the global ordering metric.
+This distinction follows broader critiques that a leaderboard score may not
+capture the dimensions of utility that matter to a particular user
+(Ethayarajh and Jurafsky 2020).
 
-### 2.4 Test-suite reduction and ranking preservation
+Benchmark design also defines what later work is incentivized to optimize.
+Bowman and Dahl (2021) argue that benchmark usefulness depends on dataset
+quality, reliability, size, and the intended capability, while Raji et al.
+(2021) caution against treating a small set of prominent benchmarks as general
+measures of progress. Our claim is correspondingly bounded: we evaluate the
+reliability of one historical ranking procedure, not general
+software-engineering capability.
 
-Regression-testing research distinguishes minimization, selection, and
-prioritization (Yoo and Harman 2012). Those techniques usually aim to retain fault-detection or
-change-relevance properties while reducing execution. Coding-agent leaderboard
-reduction has a different target: preserving comparative system ordering and
-associated top-k decisions. A task can be redundant for one cohort and
-discriminative for another.
+### 2.4 Temporal validation and benchmark evolution
 
-Rank preservation also requires a statistic that handles ties because many
-systems receive identical aggregate scores. We therefore use Kendall’s τ_b,
-which corrects for ties in ranking problems (Kendall 1945). Tau-b is supplemented by
-top-k overlap, pairwise direction agreement, calibrated score error, and
-repository coverage. The decision is intentionally conservative: both a
-central τ_b value and a lower uncertainty bound must pass.
+Time-forward validation treats the relation learned from an earlier cohort as
+potentially unstable. Concept-drift research formalizes the broader problem of
+data-generating relationships changing over time (Gama et al. 2014). We do not
+claim that the observed SWE-bench changes satisfy a particular drift model;
+the literature supplies the reason to test transfer rather than assume
+stationarity.
 
-Recent benchmark-compression studies target ranking preservation directly.
-Gusev and Zaytsev (2026) compare dataset-selection strategies using bootstrap
-aggregation and show that gains over random selection depend on the benchmark
-regime and task representations. EssenceBench combines redundancy analysis,
-score reconstruction, and subset search for large language model evaluations
-and reports substantial compression on several natural-language benchmarks
-(Wang et al. 2025). These studies establish that preserving rankings is a
-distinct optimization target. Our contribution is narrower: coding-agent task
-outcomes, time-forward held-out systems, related-system dependence, and an
-explicit full-budget control. We do not claim a generally superior selector.
+Software-engineering evidence makes the risk concrete. Golmohammadi et al.
+(2026) show that parameter-tuning conclusions in search-based software
+engineering can require periodic re-evaluation as tools and benchmarks evolve.
+Kaltenecker et al. (2023) find that relative performance rankings across
+configurable-system releases are often stable but have consequential
+exceptions. Baltes and Ralph (2022) further show that sampling and
+representativeness require explicit justification in software-engineering
+studies. Our response is to freeze sources, preserve temporal order, keep the
+two execution panels separate, and label the earlier open panel as
+developmental because its held-out period was inspected during pilot work.
 
-Software benchmarking research supplies two further precedents. Laaber et al.
-(2021) show that prioritization effectiveness and overhead vary across
-microbenchmark suites and parameterizations. Kaltenecker et al. (2023) find
-that relative performance rankings across configurable-system releases are
-often stable but have consequential exceptions. Together, these results
-motivate testing both efficiency techniques and rank transfer across software
-evolution rather than assuming that a subset or ordering remains valid.
+### 2.5 Dependence, resampling, and selection over budgets
+
+Repeated submissions from one agent family or provider create a clustered
+observation structure. Resampling whole clusters is a standard way to retain
+within-cluster dependence, although the validity and stability of cluster
+bootstraps depend on the data structure and become fragile with few clusters
+(Field and Welsh 2007; Cameron et al. 2008). We therefore report both
+all-systems and cluster-latest scopes, publish the cluster mapping, and examine
+alternative cluster definitions rather than claiming that one provider label
+fully identifies statistical dependence.
+
+The uncertainty problem also spans 13 searched budgets. Pointwise intervals do
+not provide simultaneous protection over a family of inspected decisions.
+Simultaneous-inference and resampling literature motivates max-type adjustments
+when many comparisons are considered together (Westfall and Young 1993;
+Hothorn et al. 2008). More generally, inference after a data-driven choice can
+require wider protection than inference for a prespecified target (Berk et al.
+2013). Our joint max-t band is a post hoc, custom empirical diagnostic informed
+by that literature; it is not presented as a new general procedure with
+theoretical coverage guarantees.
+
+### 2.6 Reproducibility and citation of research objects
+
+Computational reproducibility requires more than a prose description.
+Version control, automated checks, and executable workflows reduce avoidable
+errors in scientific software (Wilson et al. 2014). The software-citation
+principles treat software as a citable research product and emphasize
+specificity, persistence, accessibility, and credit (Smith et al. 2016); the
+data-citation principles make analogous demands for datasets (Data Citation
+Synthesis Group 2014). ACM SIGSOFT's empirical standards likewise frame
+transparent reporting and replication materials as part of the evidence for
+software-engineering studies (Ralph 2021).
+
+Accordingly, this study separates scholarly citations from reproduction
+identifiers. Dataset papers, software repositories, and archived releases are
+cited as research objects. Commit identifiers and SHA-256 digests identify
+exact bytes and versions, but they are recorded in a reproduction manifest
+rather than treated as substitutes for references. A persistent archive DOI
+will replace the provisional repository citation before submission.
 
 ## 3 Research Questions
 
@@ -219,19 +275,19 @@ test whether a more structured selector from the pilot transfers forward.
 ### 4.1 Frozen sources and unit of observation
 
 The unit of observation is one public submission-task outcome. Canonical task
-identifiers come from the official SWE-bench Verified dataset. Outcome matrices
-come from the official `swe-bench/experiments` repository, while public scores
-and submission metadata come from the official SWE-bench website repository.
+identifiers come from the official SWE-bench Verified dataset (Jimenez et al.
+2024; OpenAI 2024). Outcome matrices come from the official SWE-bench
+experiments repository, while public scores and submission metadata come from
+the official leaderboard website repository (SWE-bench Team 2026a, 2026b).
 All sources are pinned rather than read from moving branch heads.
 
-The final run uses experiments commit
-`1faa91cade0562ba62b66c1c99e71f7b72d96f13` and website commit
-`f42505b21a0eb31a9cc1204caafcbe0da6c1a259`. The classic and Bash-only outcome
-matrices have SHA-256 digests
-`e477915c5dd68a132995f692da67b0105743f34bd868f636d3b5fec43c1b11e0` and
-`0f5fda63360d75604589e4916057ffc294dd3b4ef6d9cca9552adf651806357d`,
-respectively. The reproduction package records every requested URL, exclusion,
-source commit, and generated file.
+The final run uses experiments commit `1faa91c` and website commit `f42505b`.
+Full commit identifiers, retrieval URLs, filenames, exclusions, collection
+times, and SHA-256 checksums are reported in Online Resource 2 and the
+machine-readable `source_manifest.json`. Commit and digest strings identify frozen
+versions; the dataset paper and software references identify the research
+objects themselves, following software- and data-citation guidance (Data
+Citation Synthesis Group 2014; Smith et al. 2016).
 
 ### 4.2 Inclusion and data-quality rules
 
@@ -353,10 +409,11 @@ cohort fixed.
 
 Entropy and temporal core-set selection are deterministic for a fixed earlier
 cohort. For these methods, we bootstrap later systems by their related-system
-cluster 1,000 times and recompute τ_b. This preserves within-cluster
-dependence during resampling. RQ1 changes in solve rate and entropy use 2,000
-repository-cluster bootstrap repetitions over tasks, where the repository is
-the resampling cluster.
+cluster 1,000 times and recompute τ_b. Resampling whole clusters preserves the
+observed within-cluster grouping rather than treating member rows as
+independent (Field and Welsh 2007). RQ1 changes in solve rate and entropy use
+2,000 repository-cluster bootstrap repetitions over tasks, where the
+repository is the resampling cluster.
 
 Because those intervals are not directly comparable, a post-protocol
 sensitivity added during review uses a harmonized curve bootstrap. Five independent
@@ -384,13 +441,19 @@ construction even when a degenerate cluster resample contains no comparable
 system pair. We report the
 budget driving each correction, per-seed ranges, and 95% Wilson Monte Carlo
 intervals conditional on the empirical resampling scheme for budget-selection
-probabilities. An additional 2,000-replicate sensitivity
+probabilities (Wilson 1927). These intervals quantify finite simulation error,
+not coverage of an external system population. An additional 2,000-replicate sensitivity
 redraws random task sets independently at each budget to compare the v2
 coupling with the nested-prefix estimand.
 The implementation follows standard bootstrap guidance on empirical
 intervals, dependent data, and Monte Carlo calculation (Efron and Tibshirani
-1985; Davison and Hinkley 1997), but the four-cell max-t construction is a
-custom application whose coverage is assessed empirically rather than assumed.
+1985; Davison and Hinkley 1997; Field and Welsh 2007). Max-type statistics are
+motivated by simultaneous-inference and resampling work (Westfall and Young
+1993; Hothorn et al. 2008), and the need for curve-wise protection follows the
+general warning that data-driven selection changes the target of inference
+(Berk et al. 2013). Nevertheless, the four-cell max-t construction here is a
+custom empirical application whose coverage is assessed diagnostically rather
+than assumed.
 
 Formally, let τ̂(c,m,b) be the observed tau-b for cell c, method m, and budget b;
 let τʳ(c,m,b) be replicate r; and let s(c,m,b) be the across-replicate standard
@@ -419,7 +482,9 @@ method superiority. The harmonized sensitivity applies a common 0.80 lower
 bound threshold to every procedure, using pointwise, raw cell-wise, cell-wise
 max-t, or decision-family joint max-t curve-bootstrap bounds.
 
-The thresholds are governance choices, not natural constants. In the
+The thresholds are governance choices, not natural constants, because the
+utility of a leaderboard decision depends on its user's purpose (Ethayarajh
+and Jurafsky 2020). In the
 tie-free case, Kendall's tau equals one minus twice the discordant-pair
 fraction, so tau values of 0.90 and 0.80 correspond to approximately 5% and
 10% discordant pairs. Tau-b adjusts this relation for ties, but the comparison
@@ -512,7 +577,7 @@ Conversely, methods that appear adequate at 150 tasks in the open panel require
 budgets are consequently 450 for repository-stratified random, 400 for
 entropy, and 475 for the temporal core set.
 
-**Fig. 2 (a) Held-out Kendall’s τ_b by task budget and scope in the open-submission panel**
+**Fig. 2 (a) Held-out Kendall’s τ_b by task budget and scope in the open-submission panel.**
 The y-axis includes the full 0–1 fidelity range and extends to -0.2 so negative
 lower intervals remain visible. The dashed horizontal line is the primary mean
 threshold of 0.90; passing also requires the method-specific lower bound.
@@ -792,7 +857,10 @@ the decision metric.
 
 Enumeration alone does not address selection induced by scanning many noisy
 budgets. Curve-wise resampling exposes the distribution of the chosen minimum,
-and a simultaneous band can control the lower bound across the complete scan.
+and a simultaneous band can adjust the lower bound across the complete scan
+(Westfall and Young 1993; Hothorn et al. 2008). Such protection is relevant
+because inference after selecting among observed candidates is generally more
+demanding than inference for one prespecified target (Berk et al. 2013).
 Band construction matters: the raw unstandardized correction changes 475 to
 500, whereas the joint standardized max-t band retains 475. A robustness
 analysis should therefore report its family, scaling, and driver budgets rather
@@ -815,20 +883,25 @@ We recommend a versioned maintenance cycle.
    materially changes.
 
 This cycle parallels calls to re-evaluate empirical configurations as tools and
-benchmarks evolve (Golmohammadi et al. 2026). It also makes the reliability policy an explicit
-governance choice. A maintainer may prefer a lenient budget for rapid internal
-screening and retain the full benchmark for public ranking. What should be
-avoided is presenting the smaller screening set as if it preserved the
-primary-policy leaderboard.
+benchmarks evolve (Golmohammadi et al. 2026) and to document dataset lineage
+throughout collection, maintenance, and use (Paullada et al. 2021). Versioned
+software, explicit manifests, and automated tests also follow established
+guidance for reliable scientific computing (Wilson et al. 2014). The cycle
+makes the reliability policy an explicit governance choice. A maintainer may
+prefer a lenient budget for rapid internal screening and retain the full
+benchmark for public ranking. What should be avoided is presenting the smaller
+screening set as if it preserved the primary-policy leaderboard.
 
 ### 6.4 Evaluation burden is not proportional cost
 
 The task-reduction percentages in Tables 5 and 6 are counts, not measured
 runtime or monetary savings. Coding-agent evaluation includes repository setup,
 container creation, dependency installation, caching, retries, and fixed
-coordination overhead. Removing 5% or 50% of tasks need not reduce total cost by
-the same proportion. A deployment decision requires a separate cost model with
-observed per-task and fixed costs.
+coordination overhead. More generally, a leaderboard's performance score need
+not capture operational attributes that matter to users (Ethayarajh and
+Jurafsky 2020). Removing 5% or 50% of tasks therefore need not reduce total
+cost by the same proportion. A deployment decision requires a separate cost
+model with observed per-task and fixed costs.
 
 ### 6.5 Relevance after SWE-bench Verified became unsuitable for frontier evaluation
 
@@ -845,8 +918,8 @@ time-forward ranking fidelity as distinct gates.
 
 ### 7.1 Construct validity
 
-The primary construct is preservation of a full-benchmark ranking, not real-
-world software engineering ability. If the full benchmark contains flawed,
+The primary construct is preservation of a full-benchmark ranking, not
+real-world software engineering ability. If the full benchmark contains flawed,
 contaminated, or unrepresentative tasks, high subset fidelity reproduces those
 limitations. Recent audits make this threat concrete (Aleithan et al. 2024;
 OpenAI 2026; Yu et al. 2025). Kendall’s τ_b captures global ordering with ties,
@@ -856,7 +929,9 @@ the top set can exceed k. We report set sizes and pairwise diagnostics; the
 decision remains τ_b based.
 
 The public score is a single binary-outcome aggregate. It does not represent
-patch quality, maintainability, efficiency, or repeated-run reliability.
+patch quality, maintainability, efficiency, or repeated-run reliability. This
+gap between a leaderboard's measured attribute and broader user utility is a
+known construct-validity risk (Ethayarajh and Jurafsky 2020; Raji et al. 2021).
 
 ### 7.2 Internal validity
 
@@ -876,7 +951,8 @@ resamples. The chosen counts (10,000 pooled curve replicates from five seeds;
 500 task draws; 500 two-way, 1,000 cluster, and 2,000 repository resamples)
 balance stability and runtime.
 With only seven standardized provider clusters, percentile support is
-discrete: across five seeds the 1,000-replicate lower bound varies by as much
+discrete, a setting in which cluster-bootstrap behavior warrants particular
+caution (Cameron et al. 2008). Across five seeds the 1,000-replicate lower bound varies by as much
 as 0.256 at some low-budget cells. The 475-task temporal-core cluster-latest
 lower bound is 1.0 under all tested seeds at both 1,000 and 5,000 repetitions,
 while the harmonized standardized all-system temporal-core pointwise lower
@@ -921,7 +997,7 @@ Scanning 13 budgets creates selection pressure. The original intervals are
 pointwise and the minimum passing budget can be unstable; curve-wise
 resampling, explicit raw and standardized simultaneous bands, driver
 diagnostics, and the persistent-rule distribution address but do not eliminate
-this issue. A future study should validate the
+this issue (Berk et al. 2013; Hothorn et al. 2008). A future study should validate the
 chosen budget on an additional time window.
 
 ### 7.4 External validity
@@ -930,7 +1006,9 @@ The study covers one 500-task Python benchmark and two SWE-bench execution
 formats. Results do not generalize numerically to other benchmarks, languages,
 task types, or private systems. Public submissions over-represent teams willing
 to publish results and may contain repeated variants. Sampling limitations of
-software engineering corpora are well documented (Baltes and Ralph 2022).
+software engineering corpora are well documented (Baltes and Ralph 2022), and
+prominent benchmarks should not be treated as universal proxies for broader
+capability (Raji et al. 2021).
 
 SWE-bench Verified's current unsuitability for frontier evaluation further limits direct use of the
 specific subsets. Scope-specific training also means that a procedure budget
@@ -949,15 +1027,17 @@ mapping, alternative-cluster results, bootstrap-stability checks, longitudinal
 summaries, a complete secondary-metric Online Resource, curve-band drivers,
 random-budget coupling sensitivity, analysis history, and an HTML diagnostic
 report. Tables 3–11 are regenerated from the machine-readable artifact and
-checked in continuous integration.
+checked in continuous integration. Version control, automated testing, and
+machine-executable regeneration follow established scientific-computing and
+empirical-reporting guidance (Wilson et al. 2014; Ralph 2021).
 
 The authoritative GitHub Actions execution completed successfully on 26 August
 2026 (run 32970788181; workflow duration 23 min 38 s) from experiment commit
-`4bcbd4a2cd259f9722e1fa3eb83fa1e03b79df75`. The downloaded artifact has SHA-256
-`c66da9edd849c36335fb15a687331d2058cb8c900c29264d38b2d06b2070c334`.
-Its primary, harmonized, diagnostic, stability, coupling, and Online Resource
-CSVs match the local formal execution byte for byte, and the manuscript table
-consistency check passes against the downloaded artifact.
+`4bcbd4a`. Its primary, harmonized, diagnostic, stability, coupling, and Online
+Resource CSVs match the local formal execution byte for byte, and the
+manuscript table consistency check passes against the downloaded artifact.
+Online Resource 2 records the full experiment commit, artifact SHA-256 digest,
+workflow URL, file inventory, and verification commands.
 
 Twenty-one unit and integration tests cover metric boundaries, tie-aware top-k sets, exact
 subset sizes, source parsing, cluster handling, decision thresholds, and the
@@ -971,16 +1051,21 @@ calibrated score error.
 The upstream binary outcome matrices are not redistributed. The source
 manifest records immutable URLs and commits so a reproducer can recollect them.
 This choice respects upstream data ownership while retaining an auditable chain
-from source to result.
+from source to result. The separation between scholarly citations and exact
+version identifiers follows the principles that data and software should be
+cited as research products while manifests identify the precise materials used
+(Data Citation Synthesis Group 2014; Smith et al. 2016).
 
 ### 8.1 Data availability
 
 The study uses public SWE-bench Verified identifiers, outcome files, and
-leaderboard metadata pinned by commit and URL in `source_manifest.json`. The
+leaderboard metadata pinned by commit and URL in `source_manifest.json`
+(Jimenez et al. 2024; OpenAI 2024; SWE-bench Team 2026a, 2026b). The
 upstream outcome matrices are recollected by the scripts and are not
 redistributed. The generated aggregate and sensitivity tables contain no
 personal or private data. A public immutable archive and persistent DOI remain
-required before journal submission.
+required before journal submission; that DOI will be used as the final data and
+software citation rather than replacing the exact-version manifest.
 
 ### 8.2 Code availability
 
@@ -988,7 +1073,9 @@ The implementation is version controlled at
 https://github.com/coloursophia/coding-agent-benchmark-maintenance. The
 replication bundle records the exact commit, workflow run, artifact checksum,
 configuration, deterministic seed rules, exclusions, cluster mapping, and
-end-to-end command. A tagged public release is required before submission.
+end-to-end command. A tagged public release is required before submission and
+will be cited as a versioned software release in accordance with Smith et al.
+(2016).
 
 ### 8.3 Use of generative AI
 
@@ -1038,16 +1125,61 @@ Baltes S, Ralph P (2022) Sampling in software engineering research: a critical
 review and guidelines. Empir Softw Eng 27:94.
 https://doi.org/10.1007/s10664-021-10072-8
 
+Berk R, Brown L, Buja A, Zhang K, Zhao L (2013) Valid post-selection inference.
+Ann Stat 41(2):802–837. https://doi.org/10.1214/12-AOS1077
+
+Bouthillier X, Delaunay P, Bronzi M, Trofimov A, Nichyporuk B, Szeto J,
+Mohammadi Sepahvand N, Raff E, Madan K, Voleti V, Ebrahimi Kahou S, Michalski
+V, Serdyuk D, Arbel T, Pal C, Varoquaux G, Vincent P (2021) Accounting for
+variance in machine learning benchmarks. Proc Mach Learn Syst 3.
+https://proceedings.mlsys.org/paper/2021/hash/0184b0cd3cfb185989f858a1d9f5c1eb-Abstract.html
+
+Bowman SR, Dahl GE (2021) What will it take to fix benchmarking in natural
+language understanding? In: Proceedings of NAACL-HLT 2021, pp 4843–4855.
+https://doi.org/10.18653/v1/2021.naacl-main.385
+
+Cameron AC, Gelbach JB, Miller DL (2008) Bootstrap-based improvements for
+inference with clustered errors. Rev Econ Stat 90(3):414–427.
+https://doi.org/10.1162/rest.90.3.414
+
+Data Citation Synthesis Group (2014) Joint declaration of data citation
+principles. FORCE11, San Diego. https://doi.org/10.25490/a97f-egyk
+
 Davison AC, Hinkley DV (1997) Bootstrap methods and their application.
 Cambridge University Press, Cambridge.
 https://doi.org/10.1017/CBO9780511802843
+
+Dehghani M, Tay Y, Gritsenko AA, Zhao Z, Houlsby N, Diaz F, Metzler D, Vinyals
+O (2021) The benchmark lottery. arXiv:2107.07002.
+https://doi.org/10.48550/arXiv.2107.07002
 
 Destefanis G, Yousefi L, Shepperd M, Tucker A, Swift S, Counsell S, Arzoky M
 (2026) An audit of machine learning experiments on software defect prediction.
 Empir Softw Eng 31:83. https://doi.org/10.1007/s10664-025-10797-w
 
+Dror R, Shlomov S, Reichart R (2019) Deep dominance: how to properly compare
+deep neural models. In: Proceedings of the 57th Annual Meeting of the
+Association for Computational Linguistics, pp 2773–2785.
+https://doi.org/10.18653/v1/P19-1266
+
 Efron B, Tibshirani R (1985) The bootstrap method for assessing statistical
 accuracy. Behaviormetrika 12:1–35. https://doi.org/10.2333/bhmk.12.17_1
+
+Elbaum S, Malishevsky AG, Rothermel G (2002) Test case prioritization: a family
+of empirical studies. IEEE Trans Softw Eng 28(2):159–182.
+https://doi.org/10.1109/32.988497
+
+Ethayarajh K, Jurafsky D (2020) Utility is in the eye of the user: a critique of
+NLP leaderboards. In: Proceedings of EMNLP 2020, pp 4846–4853.
+https://doi.org/10.18653/v1/2020.emnlp-main.393
+
+Field CA, Welsh AH (2007) Bootstrapping clustered data. J R Stat Soc Series B
+Stat Methodol 69(3):369–390.
+https://doi.org/10.1111/j.1467-9868.2007.00593.x
+
+Gama J, Žliobaitė I, Bifet A, Pechenizkiy M, Bouchachia A (2014) A survey on
+concept drift adaptation. ACM Comput Surv 46(4):44.
+https://doi.org/10.1145/2523813
 
 Golmohammadi A, Zhang M, Arcuri A (2026) Tools and benchmarks evolve: what is
 their impact on parameter tuning in SBSE experiments? Empir Softw Eng 31:8.
@@ -1057,6 +1189,14 @@ Gusev R, Zaytsev A (2026) Benchmarking on tasks that matter: dataset selection
 for preserving model rankings. In: Proceedings of the 32nd ACM SIGKDD
 Conference on Knowledge Discovery and Data Mining.
 https://doi.org/10.1145/3770855.3817569
+
+Harrold MJ, Gupta R, Soffa ML (1993) A methodology for controlling the size of
+a test suite. ACM Trans Softw Eng Methodol 2(3):270–285.
+https://doi.org/10.1145/152388.152391
+
+Hothorn T, Bretz F, Westfall P (2008) Simultaneous inference in general
+parametric models. Biom J 50(3):346–363.
+https://doi.org/10.1002/bimj.200810425
 
 Jimenez CE, Yang J, Wettig A, Yao S, Pei K, Press O, Narasimhan K (2024)
 SWE-bench: can language models resolve real-world GitHub issues? In:
@@ -1085,12 +1225,51 @@ https://openai.com/index/introducing-swe-bench-verified/. Accessed 26 August
 OpenAI (2026) Why SWE-bench Verified no longer measures frontier coding
 capabilities.
 https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/.
-Accessed 26 August 2026
+Accessed 27 August 2026
+
+Paullada A, Raji ID, Bender EM, Denton E, Hanna A (2021) Data and its
+(dis)contents: a survey of dataset development and use in machine learning
+research. Patterns 2(11):100336.
+https://doi.org/10.1016/j.patter.2021.100336
+
+Raji ID, Denton E, Bender EM, Hanna A, Paullada A (2021) AI and the everything
+in the whole wide world benchmark. In: Advances in Neural Information
+Processing Systems, Datasets and Benchmarks Track 1.
+https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/hash/084b6fbb10729ed4da8c3d3f5a3ae7c9-Abstract-round2.html
+
+Ralph P (2021) ACM SIGSOFT empirical standards released. ACM SIGSOFT Softw Eng
+Notes 46(1):19. https://doi.org/10.1145/3437479.3437483
+
+Smith AM, Katz DS, Niemeyer KE, FORCE11 Software Citation Working Group (2016)
+Software citation principles. PeerJ Comput Sci 2:e86.
+https://doi.org/10.7717/peerj-cs.86
+
+SWE-bench Team (2026a) SWE-bench experiments repository, commit 1faa91c.
+GitHub [Software].
+https://github.com/swe-bench/experiments/tree/1faa91cade0562ba62b66c1c99e71f7b72d96f13.
+Accessed 27 August 2026
+
+SWE-bench Team (2026b) SWE-bench leaderboard website repository, commit
+f42505b. GitHub [Software].
+https://github.com/swe-bench/swe-bench.github.io/tree/f42505b21a0eb31a9cc1204caafcbe0da6c1a259.
+Accessed 27 August 2026
 
 Wang S, Wang C, Fu W, Min Y, Feng M, Guan I, Hu X, He C, Wang C, Yang K, Ren X,
 Huang F, Liu D, Zhang L (2025) Rethinking LLM evaluation: can we evaluate LLMs
 with 200x less data? arXiv:2510.10457.
 https://doi.org/10.48550/arXiv.2510.10457
+
+Westfall PH, Young SS (1993) Resampling-based multiple testing: examples and
+methods for p-value adjustment. Wiley, New York. ISBN 978-0-471-55761-6
+
+Wilson EB (1927) Probable inference, the law of succession, and statistical
+inference. J Am Stat Assoc 22(158):209–212.
+https://doi.org/10.1080/01621459.1927.10502953
+
+Wilson G, Aruliah DA, Brown CT, Chue Hong NP, Davis M, Guy RT, Haddock SHD,
+Huff KD, Mitchell IM, Plumbley MD, Waugh B, White EP, Wilson P (2014) Best
+practices for scientific computing. PLoS Biol 12(1):e1001745.
+https://doi.org/10.1371/journal.pbio.1001745
 
 Yoo S, Harman M (2012) Regression testing minimization, selection and
 prioritization: a survey. Softw Test Verif Reliab 22(2):67–120.

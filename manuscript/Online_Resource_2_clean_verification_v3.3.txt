@@ -1,0 +1,50 @@
+K1 v3.3 clean-snapshot verification transcript
+Date: 2026-08-27 (Asia/Shanghai)
+Repository snapshot: 6738b61 (detached clean Git worktree)
+Artifact location: artifacts/github-run-32970788181/unpacked
+Artifact inventory: 23 files copied from the downloaded official Actions artifact
+
+COMMAND 1
+python -m unittest discover -s tests -v
+
+test_binary_entropy_boundaries (test_experiment.MetricTests.test_binary_entropy_boundaries) ... ok
+test_kendall_tau_perfect (test_experiment.MetricTests.test_kendall_tau_perfect) ... ok
+test_kendall_tau_reverse (test_experiment.MetricTests.test_kendall_tau_reverse) ... ok
+test_proportional_allocation_exact (test_experiment.MetricTests.test_proportional_allocation_exact) ... ok
+test_temporal_selector_is_deterministic_and_exact (test_experiment.MetricTests.test_temporal_selector_is_deterministic_and_exact) ... ok
+test_top_k_overlap_includes_boundary_ties_without_name_breaking (test_experiment.MetricTests.test_top_k_overlap_includes_boundary_ties_without_name_breaking) ... ok
+test_attempts_category (test_formal_experiment.FormalStudyTests.test_attempts_category) ... ok
+test_cluster_bootstrap_tau_bounds (test_formal_experiment.FormalStudyTests.test_cluster_bootstrap_tau_bounds) ... ok
+test_common_budget_does_not_assume_monotone_fidelity (test_formal_experiment.FormalStudyTests.test_common_budget_does_not_assume_monotone_fidelity) ... ok
+test_config_requires_full_benchmark_positive_control (test_formal_experiment.FormalStudyTests.test_config_requires_full_benchmark_positive_control) ... ok
+test_harmonized_curve_bootstrap_integrates_four_cells (test_formal_experiment.FormalStudyTests.test_harmonized_curve_bootstrap_integrates_four_cells) ... ok
+test_latest_per_cluster (test_formal_experiment.FormalStudyTests.test_latest_per_cluster) ... ok
+test_metric_matrix_requires_every_unique_cell (test_formal_experiment.FormalStudyTests.test_metric_matrix_requires_every_unique_cell) ... ok
+test_nested_random_paths_are_exact_and_nested (test_formal_experiment.FormalStudyTests.test_nested_random_paths_are_exact_and_nested) ... ok
+test_normalize_label_removes_version_but_preserves_family (test_formal_experiment.FormalStudyTests.test_normalize_label_removes_version_but_preserves_family) ... ok
+test_parse_bash_payload_requires_exact_boolean_matrix (test_formal_experiment.FormalStudyTests.test_parse_bash_payload_requires_exact_boolean_matrix) ... ok
+test_positive_control_is_exact_and_complete (test_formal_experiment.FormalStudyTests.test_positive_control_is_exact_and_complete) ... ok
+test_reliability_decision_uses_scope_and_lower_bound (test_formal_experiment.FormalStudyTests.test_reliability_decision_uses_scope_and_lower_bound) ... ok
+test_task_band_boundaries (test_formal_experiment.FormalStudyTests.test_task_band_boundaries) ... ok
+test_threshold_sensitivity_requires_one_budget_to_pass_every_cell (test_formal_experiment.FormalStudyTests.test_threshold_sensitivity_requires_one_budget_to_pass_every_cell) ... ok
+test_wilson_interval_contains_observed_proportion (test_formal_experiment.FormalStudyTests.test_wilson_interval_contains_observed_proportion) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.004s
+
+OK
+Exit code: 0
+
+COMMAND 2
+python manuscript/scripts/sync_result_tables.py --artifact artifacts/github-run-32970788181/unpacked --check
+
+Manuscript Tables 3–11 match the formal artifact
+Exit code: 0
+
+COMMAND 3
+python manuscript/scripts/verify_online_resource_2.py --artifact artifacts/github-run-32970788181/unpacked
+
+Online Resource 2 verification passed: 23 files exist; three metric tables each contain 208 unique cells and 16 exact controls.
+Exit code: 0
+
+Result: all three commands copied from Online Resource 2 executed verbatim and passed.

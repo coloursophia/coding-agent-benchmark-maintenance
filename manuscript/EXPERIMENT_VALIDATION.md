@@ -85,7 +85,9 @@ Online Resource 2 was rendered to a two-page PDF and both pages were inspected.
 Its inventory contains the 23 files actually present in the official artifact,
 and an automated path check rejects a missing or stale filename. The corrected
 table-sync option is `--artifact`; the obsolete `--artifact-dir` option is not
-used.
+used. All three documented commands were then copied verbatim into a detached
+clean worktree at commit `6738b61` and passed; the complete output is retained
+in `manuscript/Online_Resource_2_clean_verification_v3.3.txt`.
 
 ## Decision checks
 

@@ -15,7 +15,7 @@ from docx.shared import Inches, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_manuscript.md"
-OUTPUT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_draft_v3.2.docx"
+OUTPUT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_draft_v3.3.docx"
 
 BLUE = "2E74B5"
 DARK_BLUE = "1F4D78"

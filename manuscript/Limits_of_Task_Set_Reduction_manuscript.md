@@ -283,8 +283,9 @@ All sources are pinned rather than read from moving branch heads.
 
 The final run uses experiments commit `1faa91c` and website commit `f42505b`.
 Full commit identifiers, retrieval URLs, filenames, exclusions, collection
-times, and SHA-256 checksums are reported in Online Resource 2 and the
-machine-readable `source_manifest.json`. Commit and digest strings identify frozen
+times, and SHA-256 checksums are reported in Online Resource 2
+(`Online_Resource_2_reproduction_manifest.pdf`; a Markdown source is also
+provided) and the machine-readable `source_manifest.json`. Commit and digest strings identify frozen
 versions; the dataset paper and software references identify the research
 objects themselves, following software- and data-citation guidance (Data
 Citation Synthesis Group 2014; Smith et al. 2016).
@@ -580,7 +581,7 @@ entropy, and 475 for the temporal core set.
 **Fig. 2 (a) Held-out Kendall’s τ_b by task budget and scope in the open-submission panel.**
 The y-axis includes the full 0–1 fidelity range and extends to -0.2 so negative
 lower intervals remain visible. The dashed horizontal line is the primary mean
-threshold of 0.90; passing also requires the method-specific lower bound.
+threshold of 0.90; passing also requires the method-specific lower bound
 
 ![Open-submission held-out ranking fidelity by task budget](figures/figure2a_open_ranking_fidelity.png)
 

@@ -1,6 +1,6 @@
 # Online Resource 2: Reproduction Manifest
 
-Version: manuscript v3.2 source manifest, 2026-08-27
+Version: manuscript v3.3 source manifest, 2026-08-27
 
 This manifest separates scholarly identification of research objects from the
 exact identifiers needed to reproduce the reported analysis. The manuscript
@@ -45,16 +45,22 @@ immutable API/raw URL required to recollect them and records
 
 ## Required result files
 
-The authoritative artifact contains, at minimum:
+The authoritative artifact contains the following files; the companion
+verification script checks that every listed relative path exists:
 
 - `formal_metrics.csv` (208 panel-scope-method-budget rows);
-- `harmonized_curve_metrics.csv` (208 corresponding harmonized rows);
+- `harmonized_metrics.csv` (208 corresponding harmonized rows);
 - `secondary_metrics_online_resource.csv` (208 complete secondary-metric rows);
-- procedure-budget, budget-selection, fixed-selection, task-overlap,
-  alternative-cluster, curve-driver, bootstrap-stability, and coupling
-  sensitivity tables;
-- `source_manifest.json`, `data_quality_report.json`, cluster mappings, frozen
-  cohort files, and the HTML diagnostic report.
+- `harmonized_decisions.csv`, `budget_stability.csv`, and
+  `threshold_sensitivity.csv`;
+- `fixed_selection_decisions.csv`, `fixed_selection_sensitivity.csv`, and
+  `selection_overlap.csv`;
+- `cluster_mapping.csv`, `cluster_sensitivity.csv`, and
+  `cluster_sensitivity_decisions.csv`;
+- `curve_band_diagnostics.csv`, `curve_bootstrap_stability.csv`,
+  `bootstrap_stability.csv`, and `random_curve_coupling_sensitivity.csv`;
+- `longitudinal.csv`, `formal_results.json`, `source_manifest.json`,
+  `data_quality.json`, `analysis_history.md`, `summary.md`, and `report.html`.
 
 Online Resource 1 is `Online_Resource_1_secondary_metrics.csv`, SHA-256
 `1f7603e22c4469a39a19459ea63f6c4593301da50bb5c178ae9a7dc979854b26`.
@@ -65,12 +71,15 @@ From the repository root:
 
 ```text
 python -m unittest discover -s tests -v
-python manuscript/scripts/sync_result_tables.py --artifact-dir artifacts/github-run-32970788181/unpacked --check
+python manuscript/scripts/sync_result_tables.py --artifact artifacts/github-run-32970788181/unpacked --check
+python manuscript/scripts/verify_online_resource_2.py --artifact artifacts/github-run-32970788181/unpacked
 ```
 
-The v3.2 writing workflow must additionally render the final DOCX to PDF/PNG,
+The v3.3 writing workflow additionally renders the final DOCX to PDF/PNG,
 inspect every page, audit accessibility and styles, and confirm that all
-author-year citations and reference entries are bidirectionally matched.
+author-year citations and reference entries are bidirectionally matched. The
+three commands above were executed verbatim from a clean repository snapshot;
+the saved transcript is `Online_Resource_2_clean_verification_v3.3.txt`.
 
 ## Persistent archive status
 

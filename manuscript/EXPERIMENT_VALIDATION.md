@@ -1,4 +1,4 @@
-# V3 experiment validation and v3.2 manuscript linkage
+# V3 experiment validation and v3.3 manuscript linkage
 
 **Assessment:** The corrected v3 formal run is internally consistent and was
 independently reproduced by the successful GitHub Actions execution. Public
@@ -11,17 +11,23 @@ archival availability remains to be completed.
 - GitHub Actions run: `32970788181` (successful; 23 min 38 s).
 - Experiment commit: `4bcbd4a2cd259f9722e1fa3eb83fa1e03b79df75`.
 - Downloaded artifact: `artifacts/github-run-32970788181/unpacked`.
-- Manuscript: `manuscript/Limits_of_Task_Set_Reduction_EMSE_draft_v3.2.docx`.
+- Manuscript: `manuscript/Limits_of_Task_Set_Reduction_EMSE_draft_v3.3.docx`.
 - Manuscript DOCX SHA-256:
-  `fa7a5eb284e756effba75e169aef4145e371f536b24f6cc958274e942a70c693`.
-- Rendered PDF: `manuscript/Limits_of_Task_Set_Reduction_EMSE_draft_v3.2.pdf`.
+  `5ef769a015c3d5a1fdd4da1eb20b721a2e22c83555ebe179befda3a2049ce334`.
+- Rendered PDF: `manuscript/Limits_of_Task_Set_Reduction_EMSE_draft_v3.3.pdf`.
 - Rendered PDF SHA-256:
-  `3dd2963238bde8c91b560f04865abcd90c93f8975aef9b071066a6a71b13bcb0`.
+  `4a9d06c9c46dfed6e496d737cf33d3aa3c87493bf77da36fdf6f1ace67e4f1b3`.
 - Submission supplement: `manuscript/Online_Resource_1_secondary_metrics.csv`
   (byte-identical to the official artifact's
   `secondary_metrics_online_resource.csv`).
 - Reproduction supplement:
-  `manuscript/Online_Resource_2_reproduction_manifest.md`.
+  `manuscript/Online_Resource_2_reproduction_manifest.md` and its
+  submission-ready PDF, `manuscript/Online_Resource_2_reproduction_manifest.pdf`.
+- Reproduction supplement SHA-256 values:
+  `36853eca2c741eae6261b9ae8a4c0fa6f76e696e67ed586bab0263180e796dac`
+  (Markdown) and
+  `b1f0425ce3d49bee194e302636aaa2fdaced189cc660c54c61d37001b66efb2f`
+  (PDF).
 - Claim-citation audit: `manuscript/CLAIM_CITATION_AUDIT.md`.
 - Artifact ZIP SHA-256:
   `c66da9edd849c36335fb15a687331d2058cb8c900c29264d38b2d06b2070c334`.
@@ -69,11 +75,17 @@ full-task endpoint at 1 inside every replicate, including degenerate cluster
 draws with no comparable system pair. Twenty-one unit and integration tests
 pass.
 
-The v3.2 DOCX was rendered with LibreOffice to a 29-page PDF and every page was
+The v3.3 DOCX was rendered with LibreOffice to a 30-page PDF and every page was
 inspected. No text, table, figure, caption, or reference entry was clipped or
 overlapped. The DOCX accessibility audit reports zero high-, medium-, or
 low-severity findings; it contains 11 tables, four inline figures, no comments,
 and no tracked insertions or deletions.
+
+Online Resource 2 was rendered to a two-page PDF and both pages were inspected.
+Its inventory contains the 23 files actually present in the official artifact,
+and an automated path check rejects a missing or stale filename. The corrected
+table-sync option is `--artifact`; the obsolete `--artifact-dir` option is not
+used.
 
 ## Decision checks
 

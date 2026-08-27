@@ -58,6 +58,10 @@ and paper-facing claim limits are documented in
 - Submission supplement: `manuscript/Online_Resource_1_secondary_metrics.csv`
   contains the complete 208-row secondary-metric table.
 - Reproduction manifest: `manuscript/Online_Resource_2_reproduction_manifest.md`
+  with submission-ready PDF
+  `manuscript/Online_Resource_2_reproduction_manifest.pdf`
+- Clean-snapshot verification transcript:
+  `manuscript/Online_Resource_2_clean_verification_v3.3.txt`
 - Claim-citation audit: `manuscript/CLAIM_CITATION_AUDIT.md`
 
 The temporal split is deliberate: a random submission split would leak later

@@ -42,7 +42,7 @@ manuscript; a title or DOI match alone was not treated as support.
 | §2.6, SE empirical reporting | Reporting standard | Yes | Ralph 2021 | Used as official SIGSOFT standards context, not a statistical authority |
 | RQ1–RQ3 | Study questions/operational definitions | No new citation | §§2.3–2.5 and §4.7 | Procedure budget is explicitly manuscript-specific |
 | §4.1, data and repositories | External research objects | Yes | Jimenez et al. 2024; OpenAI 2024; SWE-bench Team 2026a,b | Paper/software references identify objects; Online Resource 2 identifies exact bytes |
-| §4.2, inclusion counts/tolerances | Study method/result | No external citation | Table 1; data_quality_report.json | Reproducible from artifact |
+| §4.2, inclusion counts/tolerances | Study method/result | No external citation | Table 1; data_quality.json | Reproducible from artifact |
 | §4.3, panels and clusters | Study design | No external citation | frozen_system_cohorts.csv; system_cluster_mapping.csv | Panels remain non-pooled; cluster policy is author-defined |
 | §4.4, four selectors | Study method | No, except established context in §2.2 | source code/config | Temporal core is labelled exploratory and non-novel |
 | §4.5, tau-b | Method source | Yes | Kendall 1945 | Tie-aware top-k Jaccard is labelled manuscript diagnostic |

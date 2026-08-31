@@ -244,7 +244,8 @@ identifiers. Dataset papers, software repositories, and archived releases are
 cited as research objects. Commit identifiers and SHA-256 digests identify
 exact bytes and versions, but they are recorded in a reproduction manifest
 rather than treated as substitutes for references. A persistent archive and
-version-specific identifier are required for the released replication package.
+version-specific identifier are provided for the released replication package
+(Cui et al. 2026).
 
 ## 3 Research Questions
 
@@ -513,13 +514,6 @@ harmonized bootstrap, raw-deviation band, standardized max-t bands, and
 coupling sensitivity were specified subsequently and are reported as post hoc
 robustness analyses. This sequence separates the fixed thresholds from the
 corrected aggregation and later sensitivity analyses.
-
-### 4.9 Use of generative AI
-
-OpenAI Codex assisted with implementing analysis code, checking calculations,
-and drafting and copyediting the manuscript. The human authors verified the
-code, results, citations, claims, and final text and remain accountable for the
-work; the system is not an author.
 
 ## 5 Results
 
@@ -1056,6 +1050,38 @@ Online Resource 2 provides the exact source and analysis identifiers, file
 inventory, checksums, and verification commands. Online Resource 1 provides
 the complete secondary-metric table used for diagnostic interpretation.
 
+### 8.1 Data availability
+
+The study uses public SWE-bench Verified identifiers, outcome files, and
+leaderboard metadata pinned by commit and URL in `source_manifest.json`
+(Jimenez et al. 2024; OpenAI 2024; SWE-bench Team 2026a, 2026b). The upstream
+binary outcome matrices are recollected by the scripts and are not
+redistributed. Generated aggregate and sensitivity tables contain no personal
+or private data. The version 1.0.0 replication package, including the generated
+outputs and Online Resources, is archived at Zenodo under
+https://doi.org/10.5281/zenodo.22189000 (Cui et al. 2026).
+
+### 8.2 Code availability
+
+The implementation is available under the MIT License at
+https://github.com/coloursophia/coding-agent-benchmark-maintenance and in the
+versioned Zenodo archive (Cui et al. 2026). The replication bundle records the
+exact experiment commit, workflow run, artifact checksum, configuration,
+deterministic seed rules, exclusions, cluster mapping, and end-to-end commands.
+
+### 8.3 Use of generative AI
+
+OpenAI Codex assisted with implementing analysis code, checking calculations,
+and drafting and copyediting the manuscript. The human authors verified the
+code, results, citations, claims, and final text and retain responsibility for
+the work; the system is not an author.
+
+### 8.4 Ethics
+
+Ethics approval and participant consent are not applicable because the study
+analyzes public secondary benchmark artifacts and does not recruit or intervene
+with human participants.
+
 ## 9 Conclusion
 
 Task-set reduction for a coding-agent leaderboard must be evaluated as a
@@ -1107,6 +1133,10 @@ https://doi.org/10.18653/v1/2021.naacl-main.385
 Cameron AC, Gelbach JB, Miller DL (2008) Bootstrap-based improvements for
 inference with clustered errors. Rev Econ Stat 90(3):414–427.
 https://doi.org/10.1162/rest.90.3.414
+
+Cui X, Jia X, Zhang X, Li X (2026) Limits of task-set reduction in SWE-bench
+Verified: replication package, version 1.0.0. Zenodo [Software].
+https://doi.org/10.5281/zenodo.22189000
 
 Data Citation Synthesis Group (2014) Joint declaration of data citation
 principles. FORCE11, San Diego. https://doi.org/10.25490/a97f-egyk

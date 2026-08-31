@@ -9,10 +9,12 @@
     },
     {
       "name": "Jia, Xueli",
+      "orcid": "0009-0003-8731-006X",
       "affiliation": "Hangzhou Dianzi University Information Engineering College"
     },
     {
       "name": "Zhang, Xiao",
+      "orcid": "0009-0007-4686-2270",
       "affiliation": "Hangzhou Dianzi University Information Engineering College; Universiti Sains Malaysia"
     },
     {
@@ -25,6 +27,7 @@
   "license": "MIT",
   "upload_type": "software",
   "version": "1.0.0",
+  "doi": "10.5281/zenodo.22189000",
   "keywords": [
     "SWE-bench Verified",
     "benchmark reduction",

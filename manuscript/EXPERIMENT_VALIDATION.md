@@ -120,7 +120,8 @@ fixed-draw rows are omitted because they do not estimate a random procedure.
   establish population coverage for a self-selected leaderboard.
 - Public leaderboard submissions are self-selected and cluster labels are
   metadata-derived approximations.
-- The replication bundle has no public immutable release or DOI yet.
+- The version 1.0.0 replication bundle uses the reserved persistent DOI
+  `10.5281/zenodo.22189000`; publication of the Zenodo draft registers it.
 - Author metadata, funding, competing-interest, originality, and contribution
   declarations remain submission-stage materials and were not fabricated in
   the writing-stage manuscript.

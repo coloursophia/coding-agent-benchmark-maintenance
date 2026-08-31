@@ -9,9 +9,11 @@ authors:
     affiliation: "Hangzhou Dianzi University Information Engineering College"
   - family-names: Jia
     given-names: Xueli
+    orcid: "https://orcid.org/0009-0003-8731-006X"
     affiliation: "Hangzhou Dianzi University Information Engineering College"
   - family-names: Zhang
     given-names: Xiao
+    orcid: "https://orcid.org/0009-0007-4686-2270"
     affiliation: "Hangzhou Dianzi University Information Engineering College; Universiti Sains Malaysia"
   - family-names: Li
     given-names: Xiaojun
@@ -19,9 +21,10 @@ authors:
     affiliation: "Hangzhou EFUTON Tea Co., Ltd."
 version: 1.0.0
 date-released: 2026-08-31
+doi: 10.5281/zenodo.22189000
 license: MIT
 repository-code: "https://github.com/coloursophia/coding-agent-benchmark-maintenance"
-url: "https://github.com/coloursophia/coding-agent-benchmark-maintenance"
+url: "https://doi.org/10.5281/zenodo.22189000"
 keywords:
   - SWE-bench Verified
   - benchmark reduction

@@ -75,5 +75,6 @@ manuscript; a title or DOI match alone was not treated as support.
 - Every reference entry is cited in the manuscript body.
 - Full Git commits, SHA-256 digests, URLs, and file inventory belong in Online
   Resource 2 or `source_manifest.json`; shortened commits may appear in prose.
-- The public replication-package DOI and final author metadata are deliberately
-  not fabricated. They remain submission-stage actions.
+- The version 1.0.0 replication package is identified by the reserved Zenodo DOI
+  `10.5281/zenodo.22189000`; four-author citation metadata is recorded in
+  `CITATION.cff` and `.zenodo.json`.

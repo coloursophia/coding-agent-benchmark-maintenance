@@ -236,3 +236,9 @@ metadata verification alone was not treated as evidence for a manuscript claim.
     https://doi.org/10.2333/bhmk.12.17_1
     - Foundational bootstrap overview used for the empirical-resampling
       background, not for a claim of exact coverage.
+
+40. Cui, X., Jia, X., Zhang, X., and Li, X. (2026). *Limits of Task-Set
+    Reduction in SWE-bench Verified: Replication Package*, version 1.0.0.
+    Zenodo. https://doi.org/10.5281/zenodo.22189000
+    - Versioned software and generated-output archive cited by the Data and
+      Code Availability statements; DOI reserved by Zenodo before publication.

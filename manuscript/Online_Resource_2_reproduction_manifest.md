@@ -1,6 +1,6 @@
 # Online Resource 2: Reproduction Manifest
 
-Version: manuscript v3.3 source manifest, 2026-08-27
+Version: replication package v1.0.0, 2026-08-31
 
 This manifest separates scholarly identification of research objects from the
 exact identifiers needed to reproduce the reported analysis. The manuscript
@@ -34,6 +34,8 @@ immutable API/raw URL required to recollect them and records
 | Field | Value |
 |---|---|
 | Git repository | https://github.com/coloursophia/coding-agent-benchmark-maintenance |
+| Tagged release | `v1.0.0` |
+| Persistent DOI | https://doi.org/10.5281/zenodo.22189000 |
 | Experiment commit | `4bcbd4a2cd259f9722e1fa3eb83fa1e03b79df75` |
 | GitHub Actions run | `32970788181` |
 | Workflow URL | https://github.com/coloursophia/coding-agent-benchmark-maintenance/actions/runs/32970788181 |
@@ -75,16 +77,17 @@ python manuscript/scripts/sync_result_tables.py --artifact artifacts/github-run-
 python manuscript/scripts/verify_online_resource_2.py --artifact artifacts/github-run-32970788181/unpacked
 ```
 
-The v3.3 writing workflow additionally renders the final DOCX to PDF/PNG,
-inspect every page, audit accessibility and styles, and confirm that all
+The release workflow additionally renders the final DOCX to PDF/PNG,
+inspects every page, audits accessibility and styles, and confirms that all
 author-year citations and reference entries are bidirectionally matched. The
 three commands above were executed verbatim from a clean repository snapshot;
 the saved transcript is `Online_Resource_2_clean_verification_v3.3.txt`.
 
-## Persistent archive status
+## Persistent archive
 
-A public tagged release and persistent archive DOI are required before journal
-submission. No DOI is invented here. When assigned, the final DOI will replace
-the provisional repository-only citation in the Data and Code Availability
-statements and in `CITATION.cff`; this manifest will continue to supply the
-exact commits and checksums.
+The public version 1.0.0 release is archived by Zenodo under the persistent DOI
+https://doi.org/10.5281/zenodo.22189000. The archive carries the MIT license,
+the four-author citation metadata, the source and reproduction manifests, and
+the generated aggregate outputs. Exact upstream commits and checksums remain
+listed above so that the scholarly citation and byte-level reproduction chain
+serve distinct purposes.

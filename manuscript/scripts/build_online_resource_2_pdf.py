@@ -27,9 +27,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "manuscript" / "Online_Resource_2_reproduction_manifest.md"
 OUTPUT = ROOT / "manuscript" / "Online_Resource_2_reproduction_manifest.pdf"
 
-BLUE = colors.HexColor("#2E74B5")
-INK = colors.HexColor("#20262E")
-MUTED = colors.HexColor("#5D6A75")
+BLUE = colors.black
+INK = colors.black
+MUTED = colors.black
 GRID = colors.HexColor("#C9D2DC")
 HEADER = colors.HexColor("#EEF3F8")
 
@@ -43,7 +43,7 @@ def inline_markup(text: str) -> str:
     )
     escaped = re.sub(
         r"(https?://[^\s<]+)",
-        lambda match: f'<link href="{match.group(1)}" color="#2E74B5">{match.group(1)}</link>',
+        lambda match: f'<link href="{match.group(1)}" color="#000000">{match.group(1)}</link>',
         escaped,
     )
     return escaped

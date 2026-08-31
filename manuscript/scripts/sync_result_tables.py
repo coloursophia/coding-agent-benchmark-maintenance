@@ -6,7 +6,7 @@ import sys
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-DEFAULT_MANUSCRIPT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_manuscript.md"
+DEFAULT_MANUSCRIPT = ROOT / "manuscript" / "Limits_of_Task_Set_Reduction_EMSE_submission.md"
 METHODS = (
     ("random", "Uniform random"),
     ("repo_stratified_random", "Repository-stratified random"),

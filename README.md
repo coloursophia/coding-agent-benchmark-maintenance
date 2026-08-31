@@ -66,8 +66,9 @@ as an equal proportional reduction in runtime or monetary cost.
 
 ## Citation
 
-Use the metadata in [`CITATION.cff`](CITATION.cff). The persistent Zenodo DOI
-will be added to the release metadata and this file before journal submission.
+Use the metadata in [`CITATION.cff`](CITATION.cff). The version 1.0.0 archive
+has the reserved persistent DOI
+[`10.5281/zenodo.22189000`](https://doi.org/10.5281/zenodo.22189000).
 
 ## License
 

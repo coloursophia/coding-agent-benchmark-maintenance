@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import zipfile
 from pathlib import Path
 
 from docx import Document
@@ -234,6 +235,68 @@ def configure_styles(doc):
         style.paragraph_format.first_line_indent = Inches(-0.194)
         style.paragraph_format.space_after = Pt(4)
         style.paragraph_format.line_spacing = 1.15
+
+
+def force_all_text_black(doc):
+    """Make every document text style and run explicitly pure black."""
+    black = RGBColor.from_string(INK)
+    for style in doc.styles:
+        try:
+            style.font.color.rgb = black
+        except (AttributeError, ValueError):
+            pass
+
+    def blacken_paragraph(paragraph):
+        for run in paragraph.runs:
+            run.font.color.rgb = black
+        for color in paragraph._p.xpath(".//w:rPr/w:color"):
+            color.set(qn("w:val"), INK)
+            color.attrib.pop(qn("w:themeColor"), None)
+            color.attrib.pop(qn("w:themeTint"), None)
+            color.attrib.pop(qn("w:themeShade"), None)
+
+    for paragraph in doc.paragraphs:
+        blacken_paragraph(paragraph)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    blacken_paragraph(paragraph)
+    for section in doc.sections:
+        for story in (section.header, section.footer):
+            for paragraph in story.paragraphs:
+                blacken_paragraph(paragraph)
+
+
+def blacken_all_ooxml_text_colors(path: Path) -> None:
+    """Force every Word text-color definition to pure black.
+
+    python-docx updates the active style sheet but can leave legacy colors in
+    stylesWithEffects.xml. Rewriting only ``w:color`` elements clears those
+    latent template colors without changing borders, fills, or figure colors.
+    """
+    temporary = path.with_suffix(".all-black.tmp.docx")
+    color_element = re.compile(rb"<w:color\b[^>]*>")
+    color_attribute = re.compile(
+        rb'\s+w:(?:val|themeColor|themeTint|themeShade)="[^"]*"'
+    )
+
+    def replace_color(match: re.Match[bytes]) -> bytes:
+        tag = color_attribute.sub(b"", match.group(0))
+        closing = b"/>" if tag.endswith(b"/>") else b">"
+        base = tag[: -len(closing)].rstrip()
+        return base + b' w:val="000000"' + closing
+
+    with zipfile.ZipFile(path, "r") as source, zipfile.ZipFile(
+        temporary, "w"
+    ) as target:
+        for item in source.infolist():
+            payload = source.read(item.filename)
+            if item.filename.startswith("word/") and item.filename.endswith(".xml"):
+                payload = color_element.sub(replace_color, payload)
+            target.writestr(item, payload)
+
+    temporary.replace(path)
 
 
 def configure_sections(doc):
@@ -482,7 +545,9 @@ def build():
     # exports the DOCX keyword list to PDF metadata.
     props.keywords = "coding\u00a0agents; benchmark\u00a0reduction; leaderboard\u00a0reliability; SWE-bench\u00a0Verified; temporal\u00a0validation; ranking\u00a0uncertainty"
     props.comments = ""
+    force_all_text_black(doc)
     doc.save(OUTPUT)
+    blacken_all_ooxml_text_colors(OUTPUT)
     print(OUTPUT)
 
 

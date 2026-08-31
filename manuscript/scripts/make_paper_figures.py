@@ -10,8 +10,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ARTIFACT = ROOT / "artifacts" / "formal-v3-local-r3"
 OUTPUT = ROOT / "manuscript" / "figures"
 
-INK = "#20262E"
-MUTED = "#5F6B76"
+INK = "#000000"
+MUTED = "#000000"
 GRID = "#D9DEE3"
 LIGHT_GRID = "#EEF1F4"
 WHITE = "#FFFFFF"
@@ -129,7 +129,7 @@ def figure1_temporal_shift():
             marker(d, xp(val), y, shape, color, 9)
             label_text = f"{val:+.3f}  [{lo:+.3f}, {hi:+.3f}]"
             tx = min(xp(hi)+18, 1750)
-            d.text((tx, y-16), label_text, font=F_LABEL, fill=color)
+            d.text((tx, y-16), label_text, font=F_LABEL, fill=INK)
 
     path = OUTPUT / "figure1_temporal_shift.png"
     save_high_resolution(img.crop((60, 50, 2150, 780)), path)
@@ -257,7 +257,7 @@ def figure3_common_budget_matrix():
             counts[(method, budget)] = count
         first_all[method] = next(b for b in budgets if counts[(method, b)] == 4)
 
-    fills = {0: "#F2F4F6", 1: "#DCE8F1", 2: "#B9D0E2", 3: "#78A7CA", 4: BLUE}
+    fills = {0: "#F2F4F6", 1: "#DCE8F1", 2: "#C9DBE8", 3: "#B4D0E3", 4: "#9EC2DC"}
     img = Image.new("RGB", (2500, 760), WHITE)
     d = ImageDraw.Draw(img)
     left, top = 500, 75
@@ -271,7 +271,7 @@ def figure3_common_budget_matrix():
             x = left+j*cw
             count = counts[(method, budget)]
             d.rectangle((x, y, x+cw-5, y+ch-8), fill=fills[count], outline=WHITE, width=3)
-            centered(d, (x+(cw-5)/2, y+(ch-8)/2-8), f"{count}/4", F_PANEL, WHITE if count >= 3 else INK)
+            centered(d, (x+(cw-5)/2, y+(ch-8)/2-8), f"{count}/4", F_PANEL, INK)
             if budget == first_all[method]:
                 d.rectangle((x+4, y+4, x+cw-9, y+ch-12), outline=GOLD, width=7)
     path = OUTPUT / "figure3_common_budget_matrix.png"

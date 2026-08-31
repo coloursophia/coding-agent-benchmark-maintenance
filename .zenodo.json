@@ -1,0 +1,35 @@
+{
+  "title": "Limits of Task-Set Reduction in SWE-bench Verified: Replication Package",
+  "description": "Code, configuration, tests, generated metrics, and supplementary materials for a time-forward study of whether reduced SWE-bench Verified task sets preserve later coding-agent leaderboard rankings.",
+  "creators": [
+    {
+      "name": "Cui, Xing",
+      "orcid": "0009-0002-4292-5805",
+      "affiliation": "Hangzhou Dianzi University Information Engineering College"
+    },
+    {
+      "name": "Jia, Xueli",
+      "affiliation": "Hangzhou Dianzi University Information Engineering College"
+    },
+    {
+      "name": "Zhang, Xiao",
+      "affiliation": "Hangzhou Dianzi University Information Engineering College; Universiti Sains Malaysia"
+    },
+    {
+      "name": "Li, Xiaojun",
+      "orcid": "0009-0009-5274-0995",
+      "affiliation": "Hangzhou EFUTON Tea Co., Ltd."
+    }
+  ],
+  "access_right": "open",
+  "license": "MIT",
+  "upload_type": "software",
+  "version": "1.0.0",
+  "keywords": [
+    "SWE-bench Verified",
+    "benchmark reduction",
+    "leaderboard reliability",
+    "temporal validation",
+    "coding agents"
+  ]
+}

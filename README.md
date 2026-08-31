@@ -1,103 +1,75 @@
-# Maintaining Discriminative Power in Coding-Agent Benchmarks
+# Limits of Task-Set Reduction in SWE-bench Verified
 
-Manuscript writers should start from
-[`manuscript/Limits_of_Task_Set_Reduction_manuscript.md`](manuscript/Limits_of_Task_Set_Reduction_manuscript.md).
-[`WRITING_BASELINE.md`](WRITING_BASELINE.md) is retained only as design history
-and does not supersede the current artifact-backed results.
+This repository is the replication package for **Limits of Task-Set Reduction
+in SWE-bench Verified: A Temporal Study of Leaderboard Ranking Reliability**.
+It evaluates whether task subsets selected from an earlier submission cohort
+preserve the ranking of later coding-agent systems.
 
-This repository contains a fully automated, zero-API-cost empirical study of
-how the discriminative power of SWE-bench Verified changes over time and how
-many tasks are required to preserve the ordering of later systems.
+The study keeps two evaluation environments separate:
 
-The workflow uses only public result files from the official
+- **Open-submission panel:** 2024 selection and 2025 evaluation using the
+  traditional SWE-bench Verified result artifacts.
+- **Standardized Bash-only panel:** 2025 selection and 2026 evaluation using
+  explicit 500-task outcomes from a common mini-SWE-agent environment.
+
+The pipeline uses public result files from the official
 [`swe-bench/experiments`](https://github.com/swe-bench/experiments) repository
-and the canonical 500 SWE-bench Verified instance identifiers. It does **not**
-invoke an LLM, use a model API, require a secret, download execution images, or
-depend on a local computer after the GitHub Actions job has started.
+and the canonical 500 SWE-bench Verified instance identifiers. It does not
+invoke an LLM, call a model API, require an API secret, or download execution
+images.
 
-## Research questions
+## Contents
 
-1. How did task-level difficulty and discrimination change across later
-   SWE-bench Verified submission cohorts?
-2. Can task subsets selected only from an earlier period preserve the ranking
-   of later systems in both open and standardized evaluation panels?
-3. Which reduced task budget reliably preserves held-out rankings, and do
-   data-driven selectors outperform simple sampling baselines?
+- `src/`: standard-library Python analysis pipeline
+- `configs/`: formal experiment configuration
+- `tests/`: unit and integration tests
+- `docs/`: protocol, analysis history, and source documentation
+- `manuscript/Online_Resource_1_secondary_metrics.csv`: complete secondary
+  metrics for all 208 panel-scope-method-budget cells
+- `manuscript/Online_Resource_2_reproduction_manifest.pdf`: human-readable
+  reproduction manifest
+- `manuscript/Online_Resource_2_reproduction_manifest.md`: machine-readable
+  manifest source
+- `manuscript/Limits_of_Task_Set_Reduction_EMSE_submission.md`: manuscript
+  source corresponding to the release
 
-## Formal design
+Generated aggregate outputs are included in the archived release. Upstream
+binary outcome matrices are not redistributed; immutable source URLs, commits,
+filenames, exclusions, and checksums are recorded in the source and
+reproduction manifests.
 
-The paper-facing experiment keeps two evaluation environments separate:
+## Reproduce
 
-- **Open-submission panel:** 2024 selection and 2025 evaluation, using the
-  traditional Verified result artifacts.
-- **Standardized Bash-only panel:** 2025 selection and 2026 evaluation, using
-  explicit 500-task outcomes from the common mini-SWE-agent environment.
-
-The 2026 panel was not read by the pilot and therefore supplies the strongest
-time-external validation panel. See [`docs/formal_protocol.md`](docs/formal_protocol.md)
-for inclusion rules, dependence controls, uncertainty estimators, and claim
-boundaries. The rejected alternatives, target-journal fit, title vocabulary,
-and paper-facing claim limits are documented in
-[`docs/paper_positioning.md`](docs/paper_positioning.md).
-
-## Evaluation design
-
-- Unit of observation: one public submission-task outcome.
-- Temporal split: tasks are selected from the earlier period of each panel and
-  evaluated only on its later systems.
-- Task budgets: 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 450,
-  475, and the 500-task positive control.
-- Primary metric: Kendall's tau-b between full-benchmark and subset rankings on
-  held-out submissions.
-- Secondary metrics: tie-aware top-k Jaccard, pairwise direction agreement,
-  calibrated score MAE, repository coverage, and bootstrap/random-baseline
-  intervals.
-- Post-protocol robustness added during review: 10,000 pooled curve-bootstrap replicates from
-  five seeds, nested random budget paths, raw cell-wise and standardized max-t
-  bands, and a joint four-cell decision-family band.
-- Submission supplement: `manuscript/Online_Resource_1_secondary_metrics.csv`
-  contains the complete 208-row secondary-metric table.
-- Reproduction manifest: `manuscript/Online_Resource_2_reproduction_manifest.md`
-  with submission-ready PDF
-  `manuscript/Online_Resource_2_reproduction_manifest.pdf`
-- Clean-snapshot verification transcript:
-  `manuscript/Online_Resource_2_clean_verification_v3.3.txt`
-- Claim-citation audit: `manuscript/CLAIM_CITATION_AUDIT.md`
-
-The temporal split is deliberate: a random submission split would leak later
-system behavior into task selection and would not test whether a core set
-generalizes to future systems.
-
-## Run remotely
-
-Open **Actions → Formal Study - Benchmark Discriminative Power → Run
-workflow**. The job collects both panels, validates every included outcome
-matrix against the official leaderboard, runs the full analysis, and uploads
-`swe-bench-formal-discriminative-power-study` with CSV, JSON, Markdown, and
-HTML results. Paper-facing task-budget claims must hold in both temporal panels
-and in both the all-systems and latest-entry-per-related-cluster scopes. The
-pilot workflow remains available as a design-history check.
-
-## Reproduce locally (optional)
+Python 3.12 or newer is recommended. The analysis uses only the Python standard
+library.
 
 ```bash
 python -m unittest discover -s tests -v
 python src/formal_experiment.py --config configs/formal.json --output formal-output
 ```
 
-Only the Python standard library is required.
+To verify the archived formal results after placing them under
+`artifacts/github-run-32970788181/unpacked`:
+
+```bash
+python manuscript/scripts/sync_result_tables.py --artifact artifacts/github-run-32970788181/unpacked --check
+python manuscript/scripts/verify_online_resource_2.py --artifact artifacts/github-run-32970788181/unpacked
+```
 
 ## Interpretation boundary
 
-This study evaluates the public leaderboard as a measurement system. A change
-between submission years is not interpreted as a causal effect of time, model
-scale, or agent architecture. Public submissions are correlated system
-variants and usually expose one outcome per task, so the analysis cannot
-estimate run-to-run model variance. Submission dates also do not identify the
-exact harness version; the formal design therefore does not pool its two
-execution environments.
+The study evaluates public leaderboard records as a measurement system. It
+does not identify causal effects of time, model scale, or agent architecture.
+The two execution environments are not pooled. A common procedure budget is
+not one fixed deployable task set, and task-count reduction is not interpreted
+as an equal proportional reduction in runtime or monetary cost.
+
+## Citation
+
+Use the metadata in [`CITATION.cff`](CITATION.cff). The persistent Zenodo DOI
+will be added to the release metadata and this file before journal submission.
 
 ## License
 
-MIT. Public source datasets remain governed by their respective licenses and
-terms.
+The replication code is released under the MIT License. Public source datasets
+remain governed by their respective licenses and terms.
